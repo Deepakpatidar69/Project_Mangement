@@ -1,0 +1,188 @@
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  Box,
+  HStack,
+  VStack,
+  Text,
+  Pressable,
+  Icon,
+  Avatar as NBAvatar,
+  Menu,
+} from "native-base";
+import { FlatList } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../../store";
+import { MemberProps } from "../../store/slices/types";
+import { adjustSizeToResolveZoomInIssue } from "../../utils/Helper";
+import AppLoader from "../../components/CustomLoader";
+import {
+  clearMemberError,
+  fetchMembers,
+  removeMember,
+} from "../../store/slices/MemberSlice";
+import { MemberCard } from "./MemberCard";
+import {
+  globalMenuAtom,
+  isDisplayErrorMessageAtom,
+} from "../../utils/Constent";
+import { useAtom } from "jotai";
+import { onTapMemberRoleUpdate } from "../../modals/model.utils";
+
+// --- MAIN COMPONENT ---
+interface ProjectTeamMembersProps {
+  projectId: string;
+  userId: string;
+  isAdmin: boolean;
+  baseSize: number;
+  fs: any;
+  onClickViewAll: () => void;
+}
+
+const ProjectTeamMembers: React.FC<ProjectTeamMembersProps> = ({
+  projectId,
+  userId,
+  isAdmin,
+  baseSize,
+  fs,
+  onClickViewAll,
+}) => {
+  const [members, setMembers] = useState<MemberProps[]>([]);
+  const {
+    members: projectMembers,
+    loading: memberLoading,
+    error,
+  } = useSelector((state: RootState) => state.member);
+  const { singleProject } = useSelector((state: RootState) => state.project);
+
+  const dispatch = useDispatch<AppDispatch>();
+  const [, setGlobalMenu] = useAtom(globalMenuAtom);
+  const [, setErrorModal] = useAtom(isDisplayErrorMessageAtom);
+
+  const loadMembers = useCallback(() => {
+    dispatch(fetchMembers({ projectId, limit: 4 }));
+  }, [dispatch, projectId]);
+
+  const handleRemoveMember = async (member: MemberProps) => {
+    dispatch(removeMember({ projectId: projectId, memberId: member.memberId }));
+  };
+
+  const handleUpdateRole = async (member: MemberProps) => {
+    await onTapMemberRoleUpdate({
+      currentRole: member.role,
+      memberId: member.memberId,
+      projectId: member.projectId,
+    });
+  };
+
+  const subTitleSize = adjustSizeToResolveZoomInIssue(baseSize * 0.04);
+  const meta = adjustSizeToResolveZoomInIssue(baseSize * 0.035);
+  const avatarSize = adjustSizeToResolveZoomInIssue(baseSize * 0.12);
+
+  useEffect(() => {
+    loadMembers();
+  }, [loadMembers]);
+
+  useEffect(() => {
+    if (projectMembers.length > 0) {
+      setMembers(projectMembers);
+    }
+  }, [projectMembers]);
+
+  // ─── Show shared error modal whenever the member slice reports an error ───
+  useEffect(() => {
+    if (!error) return;
+
+    setErrorModal((prev) => ({
+      ...prev,
+      isDisplay: true,
+      title: "Something went wrong",
+      subtitle:
+        typeof error === "string"
+          ? error
+          : "We couldn't load the team members. Please try again.",
+      onClickLeftButton: () => {
+        dispatch(clearMemberError());
+        navigation.back?.();
+      },
+    }));
+  }, [error, setErrorModal, loadMembers]);
+
+  // ─── Make sure the modal doesn't linger after this component unmounts ───
+  useEffect(() => {
+    return () => {
+      setErrorModal((prev) => ({ ...prev, isDisplay: false }));
+    };
+  }, [setErrorModal]);
+
+  return (
+    <Box width="100%">
+      <HStack
+        justifyContent="space-between"
+        alignItems="center"
+        flex={1}
+        mb={adjustSizeToResolveZoomInIssue(baseSize * 0.05)}
+      >
+        <Text fontSize={fs.title} fontWeight="700" color="coolGray.900">
+          Team Members
+        </Text>
+        <Pressable onPress={onClickViewAll}>
+          <Text fontSize={fs.subTitle} color="indigo.500" fontWeight="600">
+            View all members →
+          </Text>
+        </Pressable>
+      </HStack>
+
+      {memberLoading ? (
+        <Box
+          bg="white"
+          rounded="2xl"
+          p={adjustSizeToResolveZoomInIssue(baseSize * 0.05)}
+          alignItems="center"
+          shadow={1}
+        >
+          <AppLoader isLoading message="members loading" fullScreen={false} />
+        </Box>
+      ) : !members.length ? (
+        <Box
+          bg="white"
+          rounded="2xl"
+          p={adjustSizeToResolveZoomInIssue(baseSize * 0.05)}
+          alignItems="center"
+          shadow={1}
+        >
+          <Text color="coolGray.400" fontSize={fs.meta}>
+            No members yet
+          </Text>
+        </Box>
+      ) : (
+        <FlatList
+          data={members}
+          keyExtractor={(item) => item.memberId}
+          scrollEnabled={false}
+          contentContainerStyle={{ paddingBottom: "5%", rowGap: "8%" }}
+          renderItem={({ item, index }) => {
+            const isCurrentUser = item.assignedMemberId === userId;
+
+            return (
+              <MemberCard
+                item={item}
+                baseSize={baseSize}
+                meta={meta}
+                subTitleSize={subTitleSize}
+                avatarSize={avatarSize}
+                isAdmin={isAdmin}
+                isCurrentUser={isCurrentUser}
+                setGlobalMenu={setGlobalMenu}
+                onUpdateRole={handleUpdateRole}
+                onRemoveUser={handleRemoveMember}
+                isProjectCompleted={singleProject?.status || false}
+              />
+            );
+          }}
+        />
+      )}
+    </Box>
+  );
+};
+
+export default ProjectTeamMembers;
