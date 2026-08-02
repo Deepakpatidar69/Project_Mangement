@@ -31,7 +31,6 @@ export default function AppHeader({
   subtitle,
   onTapProfile,
 }: Props) {
-  console.log(`Container Dmension is :: ${JSON.stringify(continerDimention)}`);
 
   return (
     continerDimention.baseSize > 0 && (
@@ -80,7 +79,7 @@ export default function AppHeader({
                 bg="indigo.500"
                 source={{
                   uri:
-                    user?.profileImage?.url ||
+                    user?.profileImgUrl ||
                     `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=6366f1&color=fff&size=150`,
                 }}
                 size={adjustSizeToResolveZoomInIssue(

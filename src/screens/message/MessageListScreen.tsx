@@ -1,11 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  FlatList,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  LayoutChangeEvent,
-} from "react-native";
+import { FlatList, TextInput, Platform, LayoutChangeEvent } from "react-native";
 import {
   Box,
   Text,
@@ -27,7 +21,6 @@ import {
   deleteMessage,
   fetchProjectMessages,
   fetchTaskMessages,
-  resetMessageState,
 } from "../../store/slices/MessageSlice";
 import {
   MessageProps,
@@ -36,10 +29,10 @@ import {
 } from "../../store/slices/types";
 import { onSendMessage } from "../../modals/model.utils";
 import {
-  DEFAULT_RECENT_TASK_LIMIT,
   globalMenuAtom,
-  AppLoaderAtom, // Ensure this path is correct
-  isDisplayErrorMessageAtom, // adjust path to where you defined this atom
+  AppLoaderAtom,
+  isDisplayErrorMessageAtom,
+  DEFAULT_MESSAGE_LIMIT_ON_MESSAGE_SCREEN,
 } from "../../utils/Constent";
 import {
   adjustSizeToResolveZoomInIssue,
@@ -52,14 +45,19 @@ import { fetchProjectById } from "../../store/slices/ProjectSlice";
 import { fetchTaskForId } from "../../store/slices/TaskSlice";
 import { MessageCard } from "./MessageCard";
 import { MessageListSkeleton } from "./MessageCardSkeleton";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import {
+  onUpdateGlobalStateForProject,
+  onUpdateGlobalStateForTask,
+} from "../../utils/GlobalStateUpdateUtils";
 
 type MessageListRoute = RouteProp<RouteStackParamStack, "MessageListScreen">;
-const PAGE_LIMIT = DEFAULT_RECENT_TASK_LIMIT;
+const PAGE_LIMIT = DEFAULT_MESSAGE_LIMIT_ON_MESSAGE_SCREEN;
 
 // ─── MAIN COMPONENT ───
 export default function MessageListScreen() {
   const route = useRoute<MessageListRoute>();
-  const { type, taskId, projectId } = route.params;
+  const { type, taskId, projectId, loginUserRole } = route.params;
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
@@ -77,7 +75,6 @@ export default function MessageListScreen() {
   const headerTitleSize = adjustSizeToResolveZoomInIssue(baseSize * 0.05);
   const meta = adjustSizeToResolveZoomInIssue(baseSize * 0.035);
 
-  // MessageCard expects a single `fs` object (shared contract with
   // RecentMessages) rather than a bare `meta` number.
   const fs = {
     meta,
@@ -137,6 +134,7 @@ export default function MessageListScreen() {
   const [page, setPage] = useState(0);
 
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [headerDim, setHeaderDim] = useState({ height: 0, width: 0 });
   const [sendBarDim, setSendBarDim] = useState({ height: 0, width: 0 });
@@ -235,8 +233,6 @@ export default function MessageListScreen() {
 
   useEffect(() => {
     if (!isMountedRef.current) return;
-
-    dispatch(resetMessageState());
     pageRef.current = { limit: PAGE_LIMIT, skip: 0 };
     setPage(0);
     setInitialLoadDone(false);
@@ -292,19 +288,41 @@ export default function MessageListScreen() {
     setPage((p) => p + 1);
   }, [msgLoading]);
 
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    setPage(0);
+    pageRef.current.skip = 0;
+
+    try {
+      if (type === "TASK" && taskId) {
+        await dispatch(
+          fetchTaskMessages({ taskId, limit: PAGE_LIMIT, skip: 0 }),
+        );
+      } else if (type === "PROJECT" && projectId) {
+        await dispatch(
+          fetchProjectMessages({ projectId, limit: PAGE_LIMIT, skip: 0 }),
+        );
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsRefreshing(false);
+      }
+    }
+  }, [type, taskId, projectId, dispatch]);
+
   const handleSendMessage = async () => {
     if (!messageText.trim() || isCompleted) return; // ✅ Extra safety check
     try {
       await onSendMessage({
         message: messageText,
-        type,
+        type: type as "PROJECT" | "TASK",
         taskId,
         projectId,
       });
       setMessageText("");
       pageRef.current = { limit: PAGE_LIMIT, skip: 0 };
       setPage(0);
-      if (type === "TASK" && taskId) {
+      if ((type === "TASK" || type === "PROJECT_TASK") && taskId) {
         dispatch(fetchTaskMessages({ taskId, limit: PAGE_LIMIT, skip: 0 }));
       }
       if (type === "PROJECT" && projectId) {
@@ -337,13 +355,17 @@ export default function MessageListScreen() {
     async (messageId: string) => {
       try {
         await dispatch(deleteMessage({ messageId: messageId })).unwrap();
-        if (type === "TASK" && taskId) {
-          dispatch(fetchTaskMessages({ taskId, limit: PAGE_LIMIT, skip: 0 }));
-        }
-        if (type === "PROJECT" && projectId) {
-          dispatch(
-            fetchProjectMessages({ projectId, limit: PAGE_LIMIT, skip: 0 }),
-          );
+
+        if (type === "PROJECT") {
+          await onUpdateGlobalStateForProject({
+            entity: "MESSAGE",
+            action: "DELETE",
+          });
+        } else {
+          await onUpdateGlobalStateForTask({
+            entity: "MESSAGE",
+            action: "DELETE",
+          });
         }
       } catch (error: any) {
         setErrorModal((prev) => ({
@@ -356,7 +378,7 @@ export default function MessageListScreen() {
               : (error?.message ?? "Unable to delete this message."),
           onClickLeftButton: () => {
             dispatch(clearMessageError());
-          navigation.goBack?.();
+            navigation.goBack?.();
           },
         }));
       }
@@ -366,9 +388,12 @@ export default function MessageListScreen() {
 
   const renderMessage = useCallback(
     ({ item, index }: { item: MessageProps; index: number }) => {
-      const isAllowToDelete =
-        type == "TASK" ? isTaskCreator : isAdmin || isEditor;
+      
+      const isMessageCreator = item.messageSender.userId === currentUserId;
 
+      const  isAllowToDelete =
+              loginUserRole === "ADMIN" ||
+              (loginUserRole === "EDITOR" && isMessageCreator);
       return (
         <MessageCard
           msg={item}
@@ -379,8 +404,8 @@ export default function MessageListScreen() {
           onDeleteMessage={onDeleteMessage}
           setGlobalMenu={setGlobalMenu}
           isAllowToDelete={isAllowToDelete}
-          isProjectTask={task?.projectId ? true : false}
           isCompleted={isCompleted ?? false}
+          messageType={type}
         />
       );
     },
@@ -397,11 +422,12 @@ export default function MessageListScreen() {
     ],
   );
 
-  const showInitialSkeleton = !initialLoadDone || (msgLoading && page === 0);
+  const showInitialSkeleton =
+    (!initialLoadDone && !isRefreshing) ||
+    (msgLoading && page === 0 && !isRefreshing);
 
   return (
     <Box flex={1} width="100%" bg="coolGray.50" onLayout={onLayout}>
-      {/* Content only renders safely after the view width/height are established */}
       {containerDimensions.baseSize > 0 && (
         <KeyboardAvoidingView
           style={{ flex: 1, width: "100%", height: "100%" }}
@@ -584,6 +610,8 @@ export default function MessageListScreen() {
                   keyExtractor={(item: MessageProps) => item.messageId}
                   renderItem={renderMessage}
                   showsVerticalScrollIndicator={false}
+                  refreshing={isRefreshing}
+                  onRefresh={onRefresh}
                   contentContainerStyle={{
                     rowGap: adjustSizeToResolveZoomInIssue(baseSize * 0.04),
                     marginHorizontal: adjustSizeToResolveZoomInIssue(
@@ -597,7 +625,7 @@ export default function MessageListScreen() {
                     <FooterLoadMoreButton
                       currentCount={messages.length}
                       fontSize={containerDimensions.baseSize * 0.04}
-                      isLoading={msgLoading}
+                      isLoading={msgLoading && page > 0}
                       onLoadMore={handleLoadMore}
                       totalCount={messageCount}
                       type="Message"

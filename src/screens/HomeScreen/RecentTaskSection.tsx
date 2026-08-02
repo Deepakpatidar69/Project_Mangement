@@ -110,7 +110,6 @@ function TaskRow({
                 fontWeight={"500"}
                 color={isComplete ? "coolGray.400" : "coolGray.800"}
                 numberOfLines={1}
-                strikeThrough={isComplete}
               >
                 {task.taskHeader}
               </Text>
@@ -204,7 +203,7 @@ export const RecentTaskSection = ({
   };
 
   useEffect(() => {
-    latestTasks.length === 0 && dispatch(fetchDashboardTasks());
+     dispatch(fetchDashboardTasks());
   }, [dispatch]);
 
   // ── Show global error modal whenever the slice reports a task error ────────

@@ -1,17 +1,21 @@
+
+
 // src/utils/authUtils.js
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import auth from "@react-native-firebase/auth";
 import { AppDispatch } from "../store";
 import { googleAuthUser } from "../store/slices/authSlice";
+import { GOOGLE_CLIENT_ID } from "@env";
 
 /**
  * Configure Google Sign-In.
  * Call this once when your app starts.
  */
 export const configureGoogleSignIn = () => {
+
+
   GoogleSignin.configure({
-    // REMEMBER: Get this exact Web Client ID from the Firebase console -> Authentication -> Sign-in Method -> Google -> Web SDK Configuration
-    webClientId: "775966853971-kdlmtm6g9p9tnb66l58t7f5jgm4jalsu.apps.googleusercontent.com",
+    webClientId: GOOGLE_CLIENT_ID,
   });
 };
 
@@ -44,7 +48,6 @@ export const signInWithGoogle = async (dispatch: AppDispatch) => {
         await auth().signInWithCredential(googleCredential);
       const user = userCredential.user;
 
-
       console.log("Firebase User Info:", user.toJSON());
 
       // 4. Format the names exactly as your Prisma schema requires
@@ -53,8 +56,6 @@ export const signInWithGoogle = async (dispatch: AppDispatch) => {
       const firstName = nameParts[0];
       const lastName =
         nameParts?.length > 1 ? nameParts.slice(1).join(" ") : null;
-
-
 
       // 5. Call your Redux Slice to sync with your Node/Prisma backend
       // Using .unwrap() throws an error if the backend request fails
@@ -69,16 +70,26 @@ export const signInWithGoogle = async (dispatch: AppDispatch) => {
         }),
       ).unwrap();
 
-    
-
       // Return the backend data if you need it in the UI
       return backendResponse;
     } else {
       throw new Error(`Sign-in was ${response.type}`);
     }
-  } catch (error) {
-    console.error("Google Sign-In Error:", error);
-    throw error; // Rethrow so the UI can handle the error
+} catch (error : any) {
+    // Check both the official code AND the raw text message
+    const isCancelled = 
+      error.code === statusCodes.SIGN_IN_CANCELLED || 
+      error?.message?.includes("Sign-in was cancelled") ||
+      error?.message?.includes("cancelled");
+
+    if (isCancelled) {
+      console.log("Google Sign-In: User backed out of the prompt.");
+      return null; // Exit gracefully, NO red error thrown!
+    }
+    
+    // If we reach here, it's a real network/config error
+    console.error("Actual Google Sign-In Error:", error);
+    throw error;
   }
 };
 
@@ -87,13 +98,25 @@ export const signInWithGoogle = async (dispatch: AppDispatch) => {
  */
 export const signOutUser = async () => {
   try {
-    await auth().signOut();
-    await GoogleSignin.revokeAccess();
+
+
+    // 1. Only attempt Firebase sign out if a user is currently logged in
+    if (auth().currentUser) {
+      await auth().signOut();
+    }
+
+    // 2. Safely check and clear Google-specific tokens if they exist
+    const hasGoogleSession = await GoogleSignin.hasPreviousSignIn();
+    if (hasGoogleSession) {
+      await GoogleSignin.revokeAccess();
+      await GoogleSignin.signOut();
+    }
   } catch (error) {
     console.error("Sign Out Error:", error);
     throw error;
   }
 };
+
 
 /**
  * Subscribe to Firebase Auth state changes

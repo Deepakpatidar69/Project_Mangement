@@ -13,7 +13,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
 import { useSetAtom } from "jotai";
 import { AppDispatch, RootState } from "../../store";
-import { clearProjectError, fetchDashboardProjects } from "../../store/slices/ProjectSlice";
+import {
+  clearProjectError,
+  fetchDashboardProjects,
+} from "../../store/slices/ProjectSlice";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RouteStackParamStack } from "../../appNavigator/navigator.utils";
 import { useContainerDimensions } from "../../hooks/OnlayoutHooks";
@@ -23,7 +26,7 @@ import {
 } from "../../utils/Helper";
 import { ProjectProps } from "../../store/slices/types";
 import { Ionicons } from "@expo/vector-icons";
-import { Box, HStack, Icon, Text } from "native-base";
+import { Avatar, Box, HStack, Icon, Text } from "native-base";
 import { getStatus } from "../utils/screen.utils";
 import { isDisplayErrorMessageAtom } from "../../utils/Constent"; // adjust path to where you defined this atom
 import AppLoader from "../../components/CustomLoader";
@@ -83,7 +86,6 @@ const ProjectRaw = ({
 
   const creatorName = project.admin?.fullName ?? "Unknown";
   const creatorInitial = creatorName?.charAt(0).toUpperCase();
-  const avatarUri = project.admin?.profileImgUrl;
 
   const percentage =
     project.totalTasksCount > 0
@@ -300,42 +302,25 @@ const ProjectRaw = ({
             gap: baseSize * 0.05,
           }}
         >
-          {/* Avatar */}
-          {avatarUri ? (
-            <Image
-              source={{ uri: avatarUri }}
-              style={{
-                width: baseSize * 0.18,
-                height: baseSize * 0.18,
-                borderRadius: baseSize * 0.1,
-                borderWidth: 1.5,
-                borderColor: "rgba(255,255,255,0.3)",
-              }}
-            />
-          ) : (
-            <View
-              style={{
-                width: baseSize * 0.18,
-                height: baseSize * 0.18,
-                borderRadius: baseSize * 0.1,
-                backgroundColor: theme.avatarBg,
-                borderWidth: 1.5,
-                borderColor: "rgba(255,255,255,0.25)",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
+          <Avatar
+            source={{ uri: project.admin?.profileImageUrl }}
+            bg={theme.avatarBg}
+            style={{
+              width: baseSize * 0.18,
+              height: baseSize * 0.18,
+              borderRadius: baseSize * 0.1, // NativeBase usually handles this automatically if you use `size`, but safe to keep for custom scaling
+              borderWidth: 1.5,
+              borderColor: "rgba(255,255,255,0.3)",
+            }}
+          >
+            <Text
+              color="white"
+              fontSize={adjustSizeToResolveZoomInIssue(baseSize * 0.08)} 
+              fontWeight="semibold"
             >
-              <Text
-                style={{
-                  fontSize: adjustSizeToResolveZoomInIssue(baseSize * 0.08),
-                  fontWeight: "700",
-                  color: "#fff",
-                }}
-              >
-                {creatorInitial}
-              </Text>
-            </View>
-          )}
+              {creatorInitial}
+            </Text>
+          </Avatar>
 
           {/* Name + label */}
           <View style={{ flex: 1, minWidth: 0 }}>

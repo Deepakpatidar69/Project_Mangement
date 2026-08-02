@@ -21,7 +21,7 @@ import {
 //@ts-ignore
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useDispatch, useSelector } from "react-redux";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   loginUser,
   resetAuthState,
@@ -32,16 +32,22 @@ import { getAssets } from "../../AssetsMapping/AssetMap";
 import { useContainerDimensions } from "../../hooks/OnlayoutHooks";
 import { adjustSizeToResolveZoomInIssue } from "../../utils/Helper";
 import { signInWithGoogle } from "../../authentation/googleSignIn.utils";
+import { signInWithGitHub } from "../../authentation/githubSignIn.utils";
+import { RouteStackParamStack } from "../../appNavigator/navigator.utils";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-export default function LoginScreen({ navigation }: any) {
+export default function LoginScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { loading, error } = useSelector((state: RootState) => state.auth);
+
+  const navigation =  useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showError, setShowError] = useState(true);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
 
   // FIX: clear any stale auth errors (e.g. "No token found" left over from
   // the app's initial loadUser() check on boot) every time this screen
@@ -99,6 +105,23 @@ export default function LoginScreen({ navigation }: any) {
       setGoogleLoading(false);
     }
   };
+
+  const handleGithubLogin = async () => {
+    try {
+      setGithubLoading(true);
+      await signInWithGitHub(dispatch);
+    } catch (error) {
+      // signInWithGitHub already dispatches githubAuthUser, whose rejected
+      // case populates error.githubLoginError — nothing extra to set here.
+      console.log("Login failed");
+    } finally {
+      setGithubLoading(false);
+    }
+  };
+
+  const onClickForgotPass = () => {
+    navigation.navigate("ForgotPasswordScreen")
+  }
 
   // Cap the form width on large screens/tablets so it doesn't stretch edge to edge
   const formMaxWidth = isTablet ? 520 : 450;
@@ -309,7 +332,7 @@ export default function LoginScreen({ navigation }: any) {
                 </FormControl>
 
                 {/* Forgot Password */}
-                <Pressable alignItems="flex-end">
+                <Pressable onPress={onClickForgotPass } alignItems="flex-end">
                   <Text color="#4F46E5" fontSize="sm" fontWeight="medium">
                     Forgot Password?
                   </Text>
@@ -448,7 +471,7 @@ export default function LoginScreen({ navigation }: any) {
                       containerDimensions.baseSize * 0.02,
                     ),
                   }}
-                  onPress={() => console.log("GitHub Login")}
+                  onPress={handleGithubLogin}
                 >
                   <Image
                     source={getAssets("GITHUB_ICON")}
@@ -465,7 +488,7 @@ export default function LoginScreen({ navigation }: any) {
                     }}
                   />
                   <Text fontWeight="600" color="#111827">
-                    Continue with GitHub
+                    {githubLoading ? "Signing in..." : "Continue with Github"}
                   </Text>
                 </Pressable>
               </VStack>

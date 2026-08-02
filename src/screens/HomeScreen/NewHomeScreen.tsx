@@ -19,11 +19,11 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import ProjectList from "../projects/ProjectLists";
 import { AuthProps } from "../../store/slices/types";
-import { clearAuthError, logoutUser } from "../../store/slices/authSlice";
+import { clearAuthError } from "../../store/slices/authSlice";
 import { isDisplayErrorMessageAtom } from "../../utils/Constent"; // adjust path to where you defined this atom
-import UserProfileSection from "./ProfileScreen";
-import ProfileScreen from "./ProfileScreen";
 import UserProfile from "./ProfileScreen";
+import { onLogoutUser } from "../auth/auth.utils";
+import { useHideHardwareNavigationButton } from "../../hooks/useHideNavigation";
 
 export default function NewHomeScreen() {
   const dispatch = useDispatch<AppDispatch>();
@@ -32,6 +32,9 @@ export default function NewHomeScreen() {
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
+
+        useHideHardwareNavigationButton();
+
 
   const { user, error } = useSelector((state: RootState) => state.auth);
   const loginUser = user as AuthProps | null;
@@ -108,30 +111,17 @@ export default function NewHomeScreen() {
     }));
   }, [error, setErrorModal]);
 
+
   return (
     <View width={"100%"} height={"100%"} bg={"#F8F8FA"}>
       <Box width={"100%"} height={"100%"} onLayout={onLayout}>
         {containerDimensions.baseSize > 0 && (
           <Box
-            pt={ currentScreen === "PROFILE_SCREEN" ? undefined : getInsetTop() }
+            pt={currentScreen === "PROFILE_SCREEN" ? undefined : getInsetTop()}
             width={containerDimensions.width}
             height={containerDimensions.height}
             bg={"#F8F8FA"}
           >
-            {/* Logout Button */}
-            <Box position={"absolute"} top={2} right={2} zIndex={10}>
-              <Pressable
-                onPress={async () => await dispatch(logoutUser())}
-                bg={"red.100"}
-                px={2}
-                py={1}
-                rounded="md"
-              >
-                <Text fontSize={12} color={"red.600"} fontWeight="bold">
-                  Logout
-                </Text>
-              </Pressable>
-            </Box>
 
             {/* DASHBOARD SCREEN - Renders only if visited, hides if not active */}
             {visitedScreens.includes("DASHBOARD_SCREEN") && (
@@ -189,7 +179,7 @@ export default function NewHomeScreen() {
               >
                 <UserProfile
                   onTapBack={() => onChangeScreen("DASHBOARD_SCREEN")}
-                  user={user}               
+                  user={user}
                 />
               </Box>
             )}

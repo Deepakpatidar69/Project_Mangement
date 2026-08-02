@@ -1,10 +1,14 @@
 import axios from "axios";
 import { getToken, removeToken } from "../utils/storage";
-import { BASE_URL } from "../utils/Constent";
+import { API_RESOLVE_TIME_LIMIT } from "../utils/Constent";
+import { API_BASE_URL } from "@env";
+
+console.log("My API URL is:", API_BASE_URL); // Is it undefined?
+console.log("Entire process.env:", process.env); // If using a web framework
 
 export const apiClient = axios.create({
-  baseURL: BASE_URL,
-  timeout: 10000,
+  baseURL: API_BASE_URL,
+  timeout: API_RESOLVE_TIME_LIMIT,
 });
 
 // 🔥 REQUEST INTERCEPTOR
@@ -41,7 +45,7 @@ apiClient.interceptors.response.use(
     
     // 🔴 Network / Server error
     if (!error.response) {
-      console.log("🔴 Network Error");
+      console.log("🔴 Network Error", error);
     }
 
     return Promise.reject(error);

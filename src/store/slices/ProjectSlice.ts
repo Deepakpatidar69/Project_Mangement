@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { apiClient } from "../../api/client";
 import { API_ENDPOINTS, fetchStatusType } from "../../api/endpoint";
 import { PriorityLevel, ProjectProps } from "./types";
@@ -7,6 +7,7 @@ import {
   formatProjectResponse,
   formatSingleProject,
 } from "../TypeFormatter";
+import { DEFAULT_RECENT_PROJECT_LIMIT } from "../../utils/Constent";
 
 interface ProjectStateProps {
   assignProjects: { projects: ProjectProps[]; totalCount: number };
@@ -289,9 +290,86 @@ const projectSlice = createSlice({
   initialState,
   reducers: {
     resetProjectState: (state) => {
+      state.assignProjects = initialState.assignProjects;
+      state.createdProjects = initialState.createdProjects;
+      state.singleProject = initialState.singleProject;
       state.loading = initialState.loading;
       state.success = initialState.success;
       state.error = initialState.error;
+      state.dashboard = initialState.dashboard;
+    },
+
+    updateProjectStats: (
+      state,
+      action: PayloadAction<{
+        entity: "MESSAGE" | "TASK" | "MEMBER" | "TASK_COMPLETE";
+        change: number;
+      }>,
+    ) => {
+      const { entity, change } = action.payload;
+      if (entity === "MESSAGE") {
+        state.singleProject!.messageCount += change;
+        state.dashboard.latestProjects = state.dashboard.latestProjects.map(
+          (project) => {
+            if (project.projectId === state.singleProject?.projectId) {
+              return {
+                ...project,
+                messageCount: (project.membersCount += change),
+              };
+            } else {
+              return project;
+            }
+          },
+        );
+      }
+      if (entity === "TASK") {
+        state.singleProject!.totalTasksCount += change;
+
+        state.dashboard.latestProjects = state.dashboard.latestProjects.map(
+          (project) => {
+            if (project.projectId === state.singleProject?.projectId) {
+              return {
+                ...project,
+                totalTasksCount: (project.totalTasksCount += change),
+              };
+            } else {
+              return project;
+            }
+          },
+        );
+      }
+
+      if (entity === "TASK_COMPLETE") {
+        state.singleProject!.completedTaskCount += change;
+        state.dashboard.latestProjects = state.dashboard.latestProjects.map(
+          (project) => {
+            if (project.projectId === state.singleProject?.projectId) {
+              return {
+                ...project,
+                completedTaskCount: (project.completedTaskCount += change),
+              };
+            } else {
+              return project;
+            }
+          },
+        );
+      }
+      if (entity === "MEMBER") {
+        state.singleProject!.membersCount += change;
+
+        state.dashboard.latestProjects = state.dashboard.latestProjects.map(
+          (project) => {
+            if (project.projectId === state.singleProject?.projectId) {
+              return {
+                ...project,
+                membersCount: (project.membersCount += change),
+              };
+            } else {
+              return project;
+            }
+          },
+        );
+      }
     },
 
     clearProjectError: (state) => {
@@ -412,6 +490,10 @@ const projectSlice = createSlice({
           state.assignProjects.projects,
         );
 
+        state.dashboard.latestProjects = updateList(
+          state.dashboard.latestProjects,
+        );
+
         if (state.singleProject?.projectId === updated.projectId) {
           state.singleProject = updated;
         }
@@ -442,9 +524,14 @@ const projectSlice = createSlice({
           state.assignProjects.projects,
         );
 
+        state.dashboard.latestProjects = updateList(
+          state.dashboard.latestProjects,
+        );
+
         if (state.singleProject?.projectId === updated.projectId) {
           state.singleProject = updated;
         }
+
         state.loading = false;
         state.success = true;
       })
@@ -476,6 +563,10 @@ const projectSlice = createSlice({
         );
         state.assignProjects.projects = updateList(
           state.assignProjects.projects,
+        );
+
+        state.dashboard.latestProjects = updateList(
+          state.dashboard.latestProjects,
         );
 
         if (state.singleProject?.projectId === updated.projectId) {
@@ -512,6 +603,10 @@ const projectSlice = createSlice({
           state.assignProjects.projects,
         );
 
+        state.dashboard.latestProjects = updateList(
+          state.dashboard.latestProjects,
+        );
+
         if (state.singleProject?.projectId === updated.projectId) {
           state.singleProject = updated;
         }
@@ -531,23 +626,50 @@ const projectSlice = createSlice({
         state.loading = false;
         state.success = true;
 
-        const deleted = formatSingleProject(action.payload.project);
+        const deleted = formatSingleProject(action.payload.deletedProject);
         if (!deleted) return;
 
+        // 1. Normal remove from created/assign lists
         const remove = (list: any[]) =>
           list.filter((p) => p.projectId !== deleted.projectId);
 
         state.createdProjects.projects = remove(state.createdProjects.projects);
         state.assignProjects.projects = remove(state.assignProjects.projects);
 
-        // 🔥 Dashboard update
+        // 2. Check if deleted project is in latestProjects
+        const isLatest = state.dashboard.latestProjects.some(
+          (p) => p.projectId === deleted.projectId,
+        );
+
+        // Update total projects count first
         state.dashboard.totalProjects = Math.max(
           0,
           state.dashboard.totalProjects - 1,
         );
-        state.dashboard.latestProjects = state.dashboard.latestProjects.filter(
-          (p) => p.projectId !== deleted.projectId,
-        );
+
+        if (isLatest) {
+          // Us particular project ko remove kro
+          state.dashboard.latestProjects =
+            state.dashboard.latestProjects.filter(
+              (p) => p.projectId !== deleted.projectId,
+            );
+
+          // Agar total projects limit se jyada (ya barabar) hain, tabhi naya add kro
+          if (state.dashboard.totalProjects >= DEFAULT_RECENT_PROJECT_LIMIT) {
+            // Find a project from createdProjects that is NOT already in latestProjects
+            const newLatest = state.createdProjects.projects.find(
+              (cp) =>
+                !state.dashboard.latestProjects.some(
+                  (lp) => lp.projectId === cp.projectId,
+                ),
+            );
+
+            if (newLatest) {
+              state.dashboard.latestProjects.push(newLatest);
+            }
+          }
+          // Agar limit se kam hai, to else block nahi hai -> "jo hai vo hai"
+        }
 
         if (state.singleProject?.projectId === deleted.projectId) {
           state.singleProject = null;
@@ -583,5 +705,6 @@ const projectSlice = createSlice({
   },
 });
 
-export const { resetProjectState, clearProjectError } = projectSlice.actions;
+export const { resetProjectState, clearProjectError, updateProjectStats } =
+  projectSlice.actions;
 export default projectSlice.reducer;

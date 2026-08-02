@@ -18,6 +18,10 @@ import CreateTaskScreen from "../screens/tasks/CreateTasks";
 import ProjectTaskList from "../screens/tasks/ProjectTaskList";
 import MessageListScreen from "../screens/message/MessageListScreen";
 import AppLoader from "../components/CustomLoader";
+import ChangePasswordScreen from "../screens/auth/ChangePassword";
+import ForgotPasswordScreen from "../screens/auth/ForgotPassword";
+import TransferOwnershipScreen from "../screens/auth/TransferOwnership";
+import { DeleteAccountScreen } from "../screens/auth/DeleteAccountScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -28,7 +32,13 @@ const ApplicationNavigation = () => {
     (state: RootState) => state.auth,
   );
 
+
+
   useEffect(() => {
+    console.log(
+      `I am call in the navigation.tsx file and dispatching loadUser()`,
+    );
+
     dispatch(loadUser());
   }, []);
 
@@ -66,12 +76,28 @@ const ApplicationNavigation = () => {
               name="MessageListScreen"
               component={MessageListScreen}
             />
+            <Stack.Screen
+              name="ChangePasswordScreen"
+              component={ChangePasswordScreen}
+            />
+            <Stack.Screen
+              name="TransferOwnerShipScreen"
+              component={TransferOwnershipScreen}
+            />
+            <Stack.Screen
+              name="DeleteAccountScreen"
+              component={DeleteAccountScreen}
+            />
           </>
         ) : (
           <>
             {/* ✅ AUTH SCREENS */}
             <Stack.Screen name="LoginScreen" component={LoginScreen} />
             <Stack.Screen name="SignupScreen" component={SignupScreen} />
+            <Stack.Screen
+              name="ForgotPasswordScreen"
+              component={ForgotPasswordScreen}
+            />
           </>
         )}
       </Stack.Navigator>

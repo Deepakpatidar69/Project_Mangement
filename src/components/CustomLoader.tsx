@@ -63,7 +63,7 @@ export default function AppLoader({
     >
       <VStack alignItems="center" justifyContent="center">
         <LottieView
-          source={getAnimationAssets("Loading2")}
+          source={getAnimationAssets("LOADING")}
           autoPlay
           loop
           duration={3000}

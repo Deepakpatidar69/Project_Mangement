@@ -84,7 +84,7 @@ export const ProjectCard = ({
 
   const creatorName = project.admin?.fullName ?? "Unknown";
   const creatorInitial = creatorName?.charAt(0).toUpperCase();
-  const avatarUri = project.admin?.profileImgUrl;
+  const avatarUri = project.admin?.profileImageUrl;
 
   const percentage =
     project.totalTasksCount > 0

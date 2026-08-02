@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { FlatList } from "react-native";
+import { FlatList, RefreshControl } from "react-native";
 import { Box, VStack, HStack, Text, Icon, Pressable, View } from "native-base";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
@@ -104,6 +104,9 @@ const ProjectList = ({
   const [page, setPage] = useState(0);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
+  // ── Pull-to-refresh state ───────────────────────────────────────────────
+  const [refreshing, setRefreshing] = useState(false);
+
   // ── Handle Fetching & Tab Switching ────────────────────────────────────────
   useEffect(() => {
     let isActiveFetch = true;
@@ -195,6 +198,28 @@ const ProjectList = ({
     };
     setPage((p) => p + 1);
   }, [isLoading]);
+
+  // ── Pull-to-refresh handler ───────────────────────────────────────────────
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    pageRef.current = { limit: pageRef.current.limit, skip: 0 };
+
+    const fetchAction =
+      projectMode === "CREATED" ? fetchCreatedProject : fetchAssignProjects;
+
+    try {
+      await dispatch(
+        fetchAction({
+          fetchType: fetchType === "ALL" ? undefined : fetchType,
+          limit: pageRef.current.limit,
+          skip: 0,
+        }),
+      );
+    } finally {
+      setPage(0);
+      setRefreshing(false);
+    }
+  }, [dispatch, fetchType, projectMode]);
 
   // ── renderItem ────────────────────────────────────────────────────────────
   const renderItem = useCallback(
@@ -330,6 +355,12 @@ const ProjectList = ({
                 keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                  />
+                }
                 contentContainerStyle={{
                   paddingBottom: containerDimensions.height * 0.04,
                   rowGap: containerDimensions.height * 0.012,
@@ -382,7 +413,7 @@ const ProjectList = ({
                     shadow={1}
                   >
                     <LottieView
-                      source={getAnimationAssets("ADD_TASK2")}
+                      source={getAnimationAssets("ADD_PROJECT")}
                       autoPlay
                       loop
                       style={{

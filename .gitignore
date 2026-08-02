@@ -3,6 +3,8 @@
 # dependencies
 node_modules/
 
+.env
+
 # Expo
 .expo/
 dist/
@@ -30,8 +32,6 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
 
 # typescript
 *.tsbuildinfo

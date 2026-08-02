@@ -319,7 +319,7 @@ const HomeScreenNavigation = ({
               >
                 <LottieView
                   ref={lottieRef}
-                  source={getAnimationAssets("ADD3")}
+                  source={getAnimationAssets("CENTER_BUTTON")}
                   autoPlay={true}
                   loop={true}
                   style={{ width: "100%", height: "100%" }}

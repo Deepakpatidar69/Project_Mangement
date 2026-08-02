@@ -5,6 +5,7 @@ import { API_ENDPOINTS } from "../../api/endpoint";
 import { AuthProps } from "./types";
 import { formatSingleUser } from "../TypeFormatter";
 import { getApiError } from "../ApiError";
+import { signOutUser } from "../../authentation/googleSignIn.utils";
 
 interface AuthState {
   user: AuthProps | null;
@@ -16,16 +17,9 @@ interface AuthState {
     updateProfile: boolean;
     loadUser: boolean;
     logout: boolean;
-
     changePassword: boolean;
-    forgotPassword: boolean;
-    resetPassword: boolean;
-
     googleLogin: boolean;
     githubLogin: boolean;
-
-    verifyEmail: boolean;
-    resendVerification: boolean;
   };
 
   success: {
@@ -36,14 +30,9 @@ interface AuthState {
     logout: boolean;
 
     changePassword: boolean;
-    forgotPassword: boolean;
-    resetPassword: boolean;
 
     googleLogin: boolean;
     githubLogin: boolean;
-
-    verifyEmail: boolean;
-    resendVerification: boolean;
   };
 
   error: {
@@ -54,14 +43,9 @@ interface AuthState {
     logoutError: string | null;
 
     changePasswordError: string | null;
-    forgotPasswordError: string | null;
-    resetPasswordError: string | null;
 
     googleLoginError: string | null;
     githubLoginError: string | null;
-
-    verifyEmailError: string | null;
-    resendVerificationError: string | null;
   };
 
   isAuthenticated: boolean;
@@ -78,12 +62,8 @@ const authInitialState: AuthState = {
     updateProfile: false,
     logout: false,
     changePassword: false,
-    forgotPassword: false,
     githubLogin: false,
     googleLogin: false,
-    resetPassword: false,
-    resendVerification: false,
-    verifyEmail: false,
   },
   success: {
     register: false,
@@ -92,12 +72,8 @@ const authInitialState: AuthState = {
     updateProfile: false,
     logout: false,
     changePassword: false,
-    forgotPassword: false,
     githubLogin: false,
     googleLogin: false,
-    resetPassword: false,
-    resendVerification: false,
-    verifyEmail: false,
   },
   error: {
     registerError: null,
@@ -106,12 +82,8 @@ const authInitialState: AuthState = {
     updateError: null,
     logoutError: null,
     changePasswordError: null,
-    forgotPasswordError: null,
     githubLoginError: null,
     googleLoginError: null,
-    resetPasswordError: null,
-    resendVerificationError: null,
-    verifyEmailError: null,
   },
   isAuthenticated: false,
   isCheckLoadUser: false,
@@ -169,6 +141,7 @@ export const registerUser = createAsyncThunk(
       lastName: string;
       email: string;
       password: string;
+      otp: string;
       phone?: string;
     },
     thunkAPI,
@@ -203,15 +176,13 @@ export const googleAuthUser = createAsyncThunk(
     thunkAPI,
   ) => {
     try {
+
+      console.log(`i am call in this ::: for googleSignIn`)
+
       const res = await apiClient.post(API_ENDPOINTS.GOOGLE_LOGIN, data);
-
-
-      console.log(`Res is :: ${JSON.stringify(res.data)} ------------------------------------`)
 
       const token = res.data.token;
 
-      console.log(`Token is :: ${token} -------------------------`);
-      
       await setToken(token); // Store token locally
 
       return {
@@ -219,6 +190,7 @@ export const googleAuthUser = createAsyncThunk(
         token,
       };
     } catch (err: any) {
+      console.log(`Err is ::: ${err}`);
       return thunkAPI.rejectWithValue(getApiError(err, "Google Auth failed"));
     }
   },
@@ -270,17 +242,48 @@ export const updateProfile = createAsyncThunk(
   },
 );
 
+export const updateProfileImageThunk = createAsyncThunk(
+  "auth/updateProfileImage",
+  async (
+    file: { uri: string; type: string; name: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", {
+        uri: file.uri,
+        type: file.type || "image/jpeg",
+        name: file.name || "profile.jpg",
+      } as any);
+
+      const res = await apiClient.post(
+        API_ENDPOINTS.UPDATE_PROFILE_IMAGE,
+        formData,
+      );
+
+      return res.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update profile image.",
+      );
+    }
+  },
+);
+
 export const changePassword = createAsyncThunk(
   "auth/changePassword",
   async (
     data: {
-      currentPassword: string;
+      currentPassword?: string; // Optional: Used for standard change without OTP
       newPassword: string;
       confirmPassword: string;
+      token: string; // Optional: Used when verifying via email OTP
     },
     thunkAPI,
   ) => {
     try {
+      // NOTE: Make sure this points to your unified endpoint
+      // (e.g., API_ENDPOINTS.CHANGE_OR_SET_PASSWORD or whichever name you kept)
       const res = await apiClient.patch(API_ENDPOINTS.CHANGE_PASSWORD, data);
 
       return {
@@ -289,95 +292,6 @@ export const changePassword = createAsyncThunk(
     } catch (err: any) {
       return thunkAPI.rejectWithValue(
         getApiError(err, "Unable to change password"),
-      );
-    }
-  },
-);
-
-export const forgotPassword = createAsyncThunk(
-  "auth/forgotPassword",
-  async (
-    data: {
-      email: string;
-    },
-    thunkAPI,
-  ) => {
-    try {
-      const res = await apiClient.post(API_ENDPOINTS.FORGOT_PASSWORD, data);
-
-      return {
-        message: res.data.message,
-      };
-    } catch (err: any) {
-      return thunkAPI.rejectWithValue(
-        getApiError(err, "Unable to send reset email"),
-      );
-    }
-  },
-);
-
-export const resetPassword = createAsyncThunk(
-  "auth/resetPassword",
-  async (
-    data: {
-      token: string;
-      password: string;
-      confirmPassword: string;
-    },
-    thunkAPI,
-  ) => {
-    try {
-      const res = await apiClient.patch(
-        `${API_ENDPOINTS.RESET_PASSWORD}/${data.token}`,
-        {
-          password: data.password,
-          confirmPassword: data.confirmPassword,
-        },
-      );
-
-      return {
-        message: res.data.message,
-      };
-    } catch (err: any) {
-      return thunkAPI.rejectWithValue(
-        getApiError(err, "Unable to reset password"),
-      );
-    }
-  },
-);
-
-export const verifyEmail = createAsyncThunk(
-  "auth/verifyEmail",
-  async (token: string, thunkAPI) => {
-    try {
-      const res = await apiClient.patch(
-        `${API_ENDPOINTS.VERIFY_EMAIL}/${token}`,
-      );
-
-      return {
-        message: res.data.message,
-        user: res.data.user,
-      };
-    } catch (err: any) {
-      return thunkAPI.rejectWithValue(
-        getApiError(err, "Email verification failed"),
-      );
-    }
-  },
-);
-
-export const resendVerification = createAsyncThunk(
-  "auth/resendVerification",
-  async (_, thunkAPI) => {
-    try {
-      const res = await apiClient.post(API_ENDPOINTS.RESEND_VERIFICATION);
-
-      return {
-        message: res.data.message,
-      };
-    } catch (err: any) {
-      return thunkAPI.rejectWithValue(
-        getApiError(err, "Unable to resend verification email"),
       );
     }
   },
@@ -433,10 +347,32 @@ export const githubLogin = createAsyncThunk(
   },
 );
 
-
 export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
+  await signOutUser(); // Sign out from Firebase and Google
   await removeToken();
 });
+
+export const fetchUserProfileThunk = createAsyncThunk(
+  "auth/fetchUserProfile",
+  async (_, thunkAPI) => {
+    try {
+      const res = await apiClient.post(API_ENDPOINTS.FETCH_PROFILE_DATA);
+      return {
+        message: res.data.message,
+        user: res.data.user,
+      };
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        return thunkAPI.rejectWithValue("UNAUTHORIZED");
+      }
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to fetch profile";
+      return thunkAPI.rejectWithValue(message);
+    }
+  },
+);
 
 const authSlice = createSlice({
   name: "authSlice",
@@ -450,12 +386,8 @@ const authSlice = createSlice({
         updateProfile: false,
         logout: false,
         changePassword: false,
-        forgotPassword: false,
         githubLogin: false,
         googleLogin: false,
-        resetPassword: false,
-        resendVerification: false,
-        verifyEmail: false,
       };
       state.isAuthenticated = false;
       state.error = {
@@ -465,12 +397,8 @@ const authSlice = createSlice({
         updateError: null,
         logoutError: null,
         changePasswordError: null,
-        forgotPasswordError: null,
         githubLoginError: null,
         googleLoginError: null,
-        resetPasswordError: null,
-        resendVerificationError: null,
-        verifyEmailError: null,
       };
       state.success = {
         register: false,
@@ -479,12 +407,8 @@ const authSlice = createSlice({
         updateProfile: false,
         logout: false,
         changePassword: false,
-        forgotPassword: false,
         githubLogin: false,
         googleLogin: false,
-        resetPassword: false,
-        resendVerification: false,
-        verifyEmail: false,
       };
       state.token = null;
       state.user = null;
@@ -498,13 +422,69 @@ const authSlice = createSlice({
         updateError: null,
         logoutError: null,
         changePasswordError: null,
-        forgotPasswordError: null,
         githubLoginError: null,
         googleLoginError: null,
-        resetPasswordError: null,
-        resendVerificationError: null,
-        verifyEmailError: null,
       };
+    },
+
+    // Inside authSlice.ts reducers:
+    updateUserStats: (state, action) => {
+      if (state.user && state.user.stats) {
+        const updates = action.payload;
+        const current = state.user.stats;
+
+        // 1. Calculate new totals and completed counts first
+        const newTotalProjects =
+          updates.projectsCount !== undefined
+            ? current.totalProjects + updates.projectsCount
+            : current.totalProjects;
+
+        const newTotalMyProjects =
+          updates.projectsCount !== undefined
+            ? current.totalMyProjects + updates.projectsCount
+            : current.totalMyProjects;
+
+        const newTotalTasks =
+          updates.tasksCount !== undefined
+            ? current.totalTasks + updates.tasksCount
+            : current.totalTasks;
+
+        const newCompletedProjects =
+          updates.completedProjectsCount !== undefined
+            ? current.completedProjects + updates.completedProjectsCount
+            : current.completedProjects;
+
+        const newCompletedMyProjects =
+          updates.completedProjectsCount !== undefined
+            ? current.completedMyProjects + updates.completedProjectsCount
+            : current.completedMyProjects;
+
+        const newCompletedTasks =
+          updates.completedTasksCount !== undefined
+            ? current.completedTasks + updates.completedTasksCount
+            : current.completedTasks;
+
+        // 2. Build the updated stats object with auto-calculated pending counts
+        state.user.stats = {
+          ...current,
+
+          totalProjects: newTotalProjects,
+          totalMyProjects: newTotalMyProjects,
+          totalTasks: newTotalTasks,
+
+          completedProjects: newCompletedProjects,
+          completedMyProjects: newCompletedMyProjects,
+          completedTasks: newCompletedTasks,
+
+          // Automatically computed pending counts (Total - Completed)
+          pendingProjects: Math.max(0, newTotalProjects - newCompletedProjects),
+          pendingMyProjects: Math.max(
+            0,
+            newTotalMyProjects - newCompletedMyProjects,
+          ),
+          pendingTasks: Math.max(0, newTotalTasks - newCompletedTasks),
+        };
+      }
     },
   },
   extraReducers: (builder) => {
@@ -607,6 +587,32 @@ const authSlice = createSlice({
         state.token = null;
       })
 
+      /** ------------------------------ FETCH PROFILE --------------------------------- */
+
+      .addCase(fetchUserProfileThunk.pending, (state) => {
+        // ✅ ONLY update loading state.
+        // ❌ DO NOT set state.user = null here! This prevents the login screen redirect during pull-to-refresh.
+        state.loading.loadUser = true;
+        state.error.loadUserError = null;
+      })
+
+      .addCase(fetchUserProfileThunk.fulfilled, (state, action) => {
+        state.loading.loadUser = false;
+
+        const formatUser = formatSingleUser(action.payload.user);
+        state.user = formatUser;
+      })
+
+      .addCase(fetchUserProfileThunk.rejected, (state, action) => {
+        state.loading.loadUser = false;
+        state.error.loadUserError = action.payload as string;
+
+        if (action.payload === "UNAUTHORIZED") {
+          state.user = null;
+          state.token = null;
+        }
+      })
+
       /** ------------------------------ GOOGLE LOGIN --------------------------------- */
       .addCase(googleAuthUser.pending, (state) => {
         state.error.googleLoginError = null;
@@ -645,13 +651,13 @@ const authSlice = createSlice({
         state.success.githubLogin = false;
       })
       .addCase(githubAuthUser.fulfilled, (state, action) => {
-         state.loading.githubLogin = false;
+        state.loading.githubLogin = false;
         state.success.githubLogin = true;
 
         try {
           state.user = formatSingleUser(action.payload.user);
         } catch (e) {
-          console.log( 
+          console.log(
             "formatSingleUser failed on Google payload:",
             action.payload.user,
             e,
@@ -662,7 +668,6 @@ const authSlice = createSlice({
         state.token = action.payload.token;
         state.isAuthenticated = true;
         state.error.githubLoginError = null;
-      
       })
       .addCase(githubAuthUser.rejected, (state, action: any) => {
         state.error.githubLoginError = action.payload;
@@ -690,6 +695,27 @@ const authSlice = createSlice({
         state.error.updateError = action.payload;
       })
 
+      /** ---------------------------- Update Profile Image -------------------------------- */
+
+      .addCase(updateProfileImageThunk.pending, (state) => {
+        state.loading.updateProfile = true;
+        state.error.updateError = null;
+        state.success.updateProfile = false;
+      })
+      .addCase(updateProfileImageThunk.fulfilled, (state, action) => {
+        state.loading.updateProfile = false;
+        state.user!.profileImgUrl = action.payload.updatedUser.profileImgUrl;
+        state.user!.profileImgPublicId =
+          action.payload.updatedUser.profileImgPublicId;
+
+        state.success.updateProfile = true;
+        state.error.updateError = null;
+      })
+      .addCase(updateProfileImageThunk.rejected, (state, action: any) => {
+        state.loading.updateProfile = false;
+        state.success.updateProfile = false;
+        state.error.updateError = action.payload;
+      })
       /** ------------------------------- Change Password ---------------------------------- */
 
       .addCase(changePassword.pending, (state) => {
@@ -707,25 +733,6 @@ const authSlice = createSlice({
         state.loading.changePassword = false;
         state.success.changePassword = false;
         state.error.changePasswordError = action.payload;
-      })
-
-      /** ------------------------------- RESET PASSWORD ---------------------------------- */
-
-      .addCase(resetPassword.pending, (state) => {
-        state.loading.resetPassword = true;
-        state.success.resetPassword = false;
-        state.error.resetPasswordError = null;
-      })
-
-      .addCase(resetPassword.fulfilled, (state) => {
-        state.loading.resetPassword = false;
-        state.success.resetPassword = true;
-      })
-
-      .addCase(resetPassword.rejected, (state, action: any) => {
-        state.loading.resetPassword = false;
-        state.success.resetPassword = false;
-        state.error.resetPasswordError = action.payload;
       })
 
       /** ------------------------------- GOOGLE LOGIN ---------------------------------- */
@@ -772,52 +779,10 @@ const authSlice = createSlice({
         state.loading.githubLogin = false;
         state.success.githubLogin = false;
         state.error.githubLoginError = action.payload;
-      })
-
-      /** ------------------------------- VERIFY EMAIL  ---------------------------------- */
-
-      .addCase(verifyEmail.pending, (state) => {
-        state.loading.verifyEmail = true;
-        state.success.verifyEmail = false;
-        state.error.verifyEmailError = null;
-      })
-
-      .addCase(verifyEmail.fulfilled, (state) => {
-        state.loading.verifyEmail = false;
-        state.success.verifyEmail = true;
-
-        if (state.user) {
-          state.user.isEmailVerified = true;
-          state.user.emailVerifiedAt = new Date().toISOString();
-        }
-      })
-
-      .addCase(verifyEmail.rejected, (state, action: any) => {
-        state.loading.verifyEmail = false;
-        state.success.verifyEmail = false;
-        state.error.verifyEmailError = action.payload;
-      })
-
-      /** ------------------------------- RESEND VERIFY EMAIL  ---------------------------------- */
-
-      .addCase(resendVerification.pending, (state) => {
-        state.loading.resendVerification = true;
-        state.success.resendVerification = false;
-        state.error.resendVerificationError = null;
-      })
-
-      .addCase(resendVerification.fulfilled, (state) => {
-        state.loading.resendVerification = false;
-        state.success.resendVerification = true;
-      })
-
-      .addCase(resendVerification.rejected, (state, action: any) => {
-        state.loading.resendVerification = false;
-        state.success.resendVerification = false;
-        state.error.resendVerificationError = action.payload;
       });
   },
 });
 
-export const { resetAuthState, clearAuthError } = authSlice.actions;
+export const { resetAuthState, clearAuthError, updateUserStats } =
+  authSlice.actions;
 export default authSlice.reducer;

@@ -5,7 +5,7 @@ import { AppDispatch } from "../../store";
 import { updateProfile } from "../../store/slices/authSlice";
 import { AuthProps } from "../../store/slices/types";
 import { EditableProfileFields, EditProfileSection } from "./EditProfile";
-import UserProfileSection from "./UserProfileSction";
+import UserProfileSection from "./UserProfileSection";
 
 function pickAndUploadAvatar(asset?: {
   uri: string;
@@ -45,12 +45,6 @@ function UserProfile({ onTapBack, user }: UserProfileProps) {
     setMode("PROFILE");
   }, []);
 
-  const handleTapChangeAvatar = useCallback(
-    (asset?: { uri: string; fileName?: string; type?: string }) => {
-      pickAndUploadAvatar(asset);
-    },
-    [],
-  );
 
   const handleUpdateProfile = useCallback(
     async (data: EditableProfileFields) => {
@@ -85,7 +79,6 @@ function UserProfile({ onTapBack, user }: UserProfileProps) {
       <EditProfileSection
         user={user}
         onTapBack={handleTapBackFromEdit}
-        onTapChangeAvatar={handleTapChangeAvatar}
         onSave={handleUpdateProfile}
         isSaving={isSaving}
         isActive={mode === "EDIT"}

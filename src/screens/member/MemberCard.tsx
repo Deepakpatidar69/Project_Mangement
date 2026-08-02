@@ -2,9 +2,12 @@ import { View } from "react-native";
 import { MemberProps } from "../../store/slices/types";
 import { ROLE_CONFIG } from "../utils/screen.utils";
 import { adjustSizeToResolveZoomInIssue } from "../../utils/Helper";
-import { getMemberOptions, openUniversalMenu } from "../../modals/ActionMenu.Options.utile";
+import {
+  getMemberOptions,
+  openUniversalMenu,
+} from "../../modals/ActionMenu.Options.utile";
 import { useRef } from "react";
-import { Box, HStack, Pressable, Text, VStack } from "native-base";
+import { Avatar, Box, HStack, Pressable, Text, VStack } from "native-base";
 import { Feather } from "@expo/vector-icons";
 
 interface MemberCardProps {
@@ -16,7 +19,7 @@ interface MemberCardProps {
   isAdmin: boolean;
   isCurrentUser: boolean;
   setGlobalMenu: any;
-  isProjectCompleted : boolean;
+  isProjectCompleted: boolean;
   onUpdateRole: (item: MemberProps) => void;
   onRemoveUser: (item: MemberProps) => void;
 }
@@ -34,14 +37,6 @@ const AVATAR_PALETTE = [
 ];
 const getAvatarColor = (name: string): string =>
   AVATAR_PALETTE[name.charCodeAt(0) % AVATAR_PALETTE.length];
-const getInitials = (name: string): string =>
-  name
-    .split(" ")
-    .map((n) => n[0] ?? "")
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
 
 export const MemberCard = ({
   item,
@@ -54,11 +49,16 @@ export const MemberCard = ({
   setGlobalMenu,
   onUpdateRole,
   onRemoveUser,
-  isProjectCompleted = false
+  isProjectCompleted = false,
 }: MemberCardProps) => {
   const triggerRef = useRef<View>(null);
   const roleConfig = ROLE_CONFIG[item.role] ?? ROLE_CONFIG.VIEWER;
   const iconSize = adjustSizeToResolveZoomInIssue(baseSize * 0.06);
+
+  // Get the first letter dynamically for the fallback text
+  const firstLetter = item.memberName
+    ? item.memberName.charAt(0).toUpperCase()
+    : "U";
 
   const handleOpenMenu = () => {
     openUniversalMenu({
@@ -92,22 +92,27 @@ export const MemberCard = ({
         shadow={1}
         position="relative"
       >
-        <Box
-          w={avatarSize}
-          h={avatarSize}
-          borderRadius="full"
-          bg={getAvatarColor(item.memberName)}
+        <Avatar
+          bg={isCurrentUser ? "indigo.500" : getAvatarColor(item.memberName)}
+          size={adjustSizeToResolveZoomInIssue(baseSize * 0.13)}
           justifyContent="center"
           alignItems="center"
+          borderWidth={2}
+          borderColor="white"
+          shadow={1}
+          // Safely apply the source ONLY if the URL actually exists
+          source={
+               { uri: item.assignedMember.profileImageUrl }
+          }
         >
           <Text
-            fontSize={adjustSizeToResolveZoomInIssue(avatarSize * 0.38)}
-            fontWeight="bold"
             color="white"
+            fontSize={adjustSizeToResolveZoomInIssue(baseSize * 0.07)}
+            fontWeight="semibold"
           >
-            {getInitials(item.memberName)}
+            {firstLetter}
           </Text>
-        </Box>
+        </Avatar>
 
         <VStack flex={1} space={0.5}>
           <Text

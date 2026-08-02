@@ -161,7 +161,7 @@ export const AppContainer = ({ children }: AppComponentProps) => {
     if (
       isCommonPopUpDisplay ||
       messageAtom.isDisplayMessageModal ||
-      addMemberAtom.isDisplay
+      addMemberAtom.isOpen
     ) {
       console.log(
         `the isCommonPopUpDisplay is already displayed :: ${isCommonPopUpDisplay} `,
@@ -174,6 +174,7 @@ export const AppContainer = ({ children }: AppComponentProps) => {
 
     if (activePopup) {
       const atomConfiguration = activePopup.getConfig();
+
       setcommonPopUpContentDecider(atomConfiguration);
       setIsCommonPopUpDisplay(true);
     }
@@ -189,6 +190,7 @@ export const AppContainer = ({ children }: AppComponentProps) => {
       <Box w={"100%"} height={"100%"}>
         {children}
       </Box>
+
       {/**
        * -------------------------------------------------------------------------------------
        * -------------------------------- For Message Pop Up ----------------------------------
@@ -226,7 +228,7 @@ export const AppContainer = ({ children }: AppComponentProps) => {
        * -------------------------------- For Add Member Pop Up ------------------------------
        * -------------------------------------------------------------------------------------
        */}
-      {addMemberAtom.isDisplay && (
+      {addMemberAtom.isOpen && (
         <Box
           position={"absolute"}
           width={"100%"}
@@ -238,7 +240,7 @@ export const AppContainer = ({ children }: AppComponentProps) => {
           <AddMemberModal
             compHeight={screenHeight * 0.5}
             compWidth={screenWidth * 0.9}
-            isOpen={addMemberAtom.isDisplay}
+            isOpen={addMemberAtom.isOpen}
             onClose={addMemberAtom.onClose}
             onSuccess={addMemberAtom.onSuccess}
             projectId={addMemberAtom.projectId}
@@ -255,7 +257,7 @@ export const AppContainer = ({ children }: AppComponentProps) => {
           position={"absolute"}
           width={"100%"}
           height={"100%"}
-          zIndex={1000}
+          zIndex={10000}
           justifyContent={"center"}
           alignItems={"center"}
         >
@@ -434,7 +436,7 @@ export const AppContainer = ({ children }: AppComponentProps) => {
             compHeight={screenHeight * 0.4}
             compWidth={screenWidth * 0.9}
             onClose={() => setIsUserOffline(true)}
-            lottieSource={"Offline"}
+            lottieSource={"OFFLINE"}
             title="You're Offline"
             message="Please check your internet connection and try again."
           />

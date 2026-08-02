@@ -1,15 +1,8 @@
 import React from "react";
 
-import {
-  Box,
-  Text,
-  VStack,
-  Pressable,
-  KeyboardAvoidingView,
-} from "native-base";
-import { Platform } from "react-native";
+import { Box, Text, VStack, Pressable } from "native-base";
 import LottieView from "lottie-react-native";
-
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { adjustSizeToResolveZoomInIssue } from "../utils/Helper";
 import { getAnimationAssets } from "../AssetsMapping/AssetMap";
 
@@ -75,109 +68,124 @@ const OfflineModal: React.FC<OfflineModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <Box
       style={{
         position: "absolute",
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        justifyContent: "center",
-        alignItems: "center",
         zIndex: 999,
         backgroundColor: backdropColor,
       }}
     >
-      {/* ── Main Modal Card Frame ── */}
-      <Box
-        width={compWidth}
-        height={compHeight}
-        bg={backgroundColor}
-        borderRadius="3xl"
-        overflow="hidden"
-        shadow={6}
+      <KeyboardAwareScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={20}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
       >
-        {/* Content Area */}
-        <VStack
-          height={"95%"}
-          width={"100%"}
-          px={"6%"}
-          pb={"4%"}
-          space={"3%"}
-          alignItems="center"
-          justifyContent="center"
+        {/* ── Main Modal Card Frame ── */}
+        <Box
+          width={compWidth}
+          height={compHeight}
+          bg={backgroundColor}
+          borderRadius="3xl"
+          overflow="hidden"
+          shadow={6}
         >
-          {/* Lottie Animation */}
-          <Box
-            width={lottieSize}
-            height={lottieSize}
-            justifyContent="center"
-            alignItems="center"
-          >
-            <LottieView
-              source={getAnimationAssets(lottieSource)}
-              autoPlay
-              loop
-              style={{ width: lottieSize * 0.8, height: lottieSize * 0.8 }}
-            />
-          </Box>
-
+          {/* Content Area */}
           <VStack
-            height={adjustSizeToResolveZoomInIssue(
-              compHeight * 0.95 - lottieSize,
-            )}
+            height={"95%"}
             width={"100%"}
-            space={"2%"}
-            alignItems={"center"}
+            px={"6%"}
+            pb={"4%"}
+            space={"3%"}
+            alignItems="center"
+            justifyContent="center"
           >
-            {/* Title */}
-            <Text
-              fontSize={titleSize}
-              fontWeight="bold"
-              color="coolGray.900"
-              textAlign="center"
+            {/* Lottie Animation */}
+            <Box
+              width={lottieSize}
+              height={lottieSize}
+              justifyContent="center"
+              alignItems="center"
             >
-              {title}
-            </Text>
-
-            {/* Offline Message */}
-            <Text
-              fontSize={bodySize}
-              color="coolGray.500"
-              textAlign="center"
-              px={"4%"}
-            >
-              {message}
-            </Text>
-
-            {/* Cancel / Dismiss Action */}
-            <Box position={"absolute"} bottom={0} left={0} right={0} justifyContent={"center"} alignItems={"center"}>
-              <Pressable onPress={onClose}>
-                {({ isPressed }) => (
-                  <Box
-                    bg={isPressed ? "red.700" : "red.500"}
-                    borderRadius="xl"
-                    py={"2%"}
-                    px={"10%"}
-                    justifyContent="center"
-                    alignItems="center"
-                  >
-                    <Text
-                      fontSize={buttonSize}
-                      fontWeight="semibold"
-                      color="white"
-                    >
-                      {cancelLabel}
-                    </Text>
-                  </Box>
-                )}
-              </Pressable>
+              <LottieView
+                source={getAnimationAssets(lottieSource)}
+                autoPlay
+                loop
+                style={{ width: lottieSize * 0.8, height: lottieSize * 0.8 }}
+              />
             </Box>
+
+            <VStack
+              height={adjustSizeToResolveZoomInIssue(
+                compHeight * 0.95 - lottieSize,
+              )}
+              width={"100%"}
+              space={"2%"}
+              alignItems={"center"}
+            >
+              {/* Title */}
+              <Text
+                fontSize={titleSize}
+                fontWeight="bold"
+                color="coolGray.900"
+                textAlign="center"
+              >
+                {title}
+              </Text>
+
+              {/* Offline Message */}
+              <Text
+                fontSize={bodySize}
+                color="coolGray.500"
+                textAlign="center"
+                px={"4%"}
+              >
+                {message}
+              </Text>
+
+              {/* Cancel / Dismiss Action */}
+              <Box
+                position={"absolute"}
+                bottom={0}
+                left={0}
+                right={0}
+                justifyContent={"center"}
+                alignItems={"center"}
+              >
+                <Pressable onPress={onClose}>
+                  {({ isPressed }) => (
+                    <Box
+                      bg={isPressed ? "red.700" : "red.500"}
+                      borderRadius="xl"
+                      py={"2%"}
+                      px={"10%"}
+                      justifyContent="center"
+                      alignItems="center"
+                    >
+                      <Text
+                        fontSize={buttonSize}
+                        fontWeight="semibold"
+                        color="white"
+                      >
+                        {cancelLabel}
+                      </Text>
+                    </Box>
+                  )}
+                </Pressable>
+              </Box>
+            </VStack>
           </VStack>
-        </VStack>
-      </Box>
-    </KeyboardAvoidingView>
+        </Box>
+      </KeyboardAwareScrollView>
+    </Box>
   );
 };
 

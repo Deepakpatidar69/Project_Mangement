@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 // @ts-ignore
 import { MaterialIcons, Ionicons } from "react-native-vector-icons";
 import { useDispatch, useSelector } from "react-redux";
@@ -10,7 +16,6 @@ import {
   VStack,
   Pressable,
   Icon,
-  ScrollView,
   Avatar as NBAvatar,
   Center,
 } from "native-base";
@@ -23,11 +28,8 @@ import {
   adjustSizeToResolveZoomInIssue,
   getShortText,
 } from "../../utils/Helper";
-import { KeyboardAvoidingView, Platform, Text } from "react-native";
-import {  clearTaskError, fetchTaskForId, resetTaskState } from "../../store/slices/TaskSlice";
-
-import { resetMessageState } from "../../store/slices/MessageSlice";
-
+import { Text, RefreshControl } from "react-native"; // <-- 1. Import RefreshControl
+import { clearTaskError, fetchTaskForId } from "../../store/slices/TaskSlice";
 import {
   deleteComment,
   fetchTaskComments,
@@ -48,17 +50,17 @@ import {
 import UpdateTask from "./UpdateTasks";
 import { useSetAtom } from "jotai";
 import { AppLoaderAtom } from "../../utils/Constent";
-import { isDisplayErrorMessageAtom } from "../../utils/Constent"; // adjust path to where you defined this atom
+import { isDisplayErrorMessageAtom } from "../../utils/Constent";
 import { MenuOption } from "../../utils/props.utils";
 import { getTaskMenuOptions } from "../../modals/ActionMenu.Options.utile";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { clearTaskMessages} from "../../store/slices/MessageSlice";
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function TaskDetailScreen({ route }: any) {
   const [isDisplayUpdateTask, setIsDisplayUpdateTask] =
     useState<boolean>(false);
-
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
@@ -83,7 +85,6 @@ export default function TaskDetailScreen({ route }: any) {
     (state: RootState) => state.task,
   );
   const { singleProject } = useSelector((state: RootState) => state.project);
-
   const { comments, loading: commentLoading } = useSelector(
     (state: RootState) => state.comment,
   );
@@ -92,16 +93,52 @@ export default function TaskDetailScreen({ route }: any) {
   const task = singleTask as TaskProps | null;
   const project = singleProject as ProjectProps | null;
 
-  // ─── Global Loader Logic ──────────────────────────────────────────────────
+  // ─── Global Loader & Error Logic ─────────────────────────────────────────
   const setDisplayAppLoader = useSetAtom(AppLoaderAtom);
-
-  // Global error modal setter
   const setErrorModal = useSetAtom(isDisplayErrorMessageAtom);
 
+  const hasFetched = useRef(false);
+  const isDeleted = useRef(false);
+
+  // ─── Refresh Logic ───────────────────────────────────────────────────────
+  // 2. Setup states for pulling to refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // 3. Create the refresh handler
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+
+    // Re-fetch the task data via Redux
+    dispatch(fetchTaskForId(taskId));
+
+    // Change the key to remount child components like <RecentMessages />
+    // so they trigger their internal re-fetches automatically.
+    setTimeout(() => {
+      setRefreshKey((prevKey) => prevKey + 1);
+      setRefreshing(false);
+    }, 1000);
+  }, [dispatch, taskId]);
+  // ─────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
-    // Show loader if fetching task, fetching comments, or calculating layout
-    if (loading || commentLoading || containerDimensions.baseSize === 0) {
-      setDisplayAppLoader({ isLoading: true, message: "task loading" });
+
+    dispatch(clearTaskMessages());
+    // Determine if we are still waiting on data or layout
+    const isUIReady = containerDimensions.baseSize > 0;
+    // We only consider the task "ready" if it exists AND its ID matches the route ID
+    const isTaskDataReady = task && task.taskId === taskId;
+
+    if (
+      loading ||
+      commentLoading ||
+      !isUIReady ||
+      (!isTaskDataReady && !error)
+    ) {
+      setDisplayAppLoader({
+        isLoading: true,
+        message: "Loading task...",
+      });
     } else {
       setDisplayAppLoader({ isLoading: false, message: "" });
     }
@@ -109,77 +146,62 @@ export default function TaskDetailScreen({ route }: any) {
     loading,
     commentLoading,
     containerDimensions.baseSize,
+    task,
+    taskId,
+    error,
     setDisplayAppLoader,
   ]);
 
-  // Failsafe cleanup for loader
+  // ─── Fetch Task API Call ──────────────────────────────────────────────────
   useEffect(() => {
+    let isMounted = true;
+
+    if (taskId && !hasFetched.current) {
+      hasFetched.current = true;
+      dispatch(clearTaskError());
+
+      dispatch(fetchTaskForId(taskId))
+        .unwrap()
+        .catch((errPayload) => {
+          if (!isMounted || isDeleted.current) return;
+
+          setErrorModal((prev) => ({
+            ...prev,
+            isModalOpen: true,
+            title: "Something went wrong",
+            subTitle:
+              typeof errPayload === "string"
+                ? errPayload
+                : ((errPayload as any)?.message ??
+                  "Unable to load this task. Please try again."),
+            onClickLeftButton: () => {
+              dispatch(clearTaskError());
+              navigation.goBack();
+            },
+          }));
+        });
+    }
+
     return () => {
+      isMounted = false;
       setDisplayAppLoader({ isLoading: false, message: "" });
     };
-  }, [setDisplayAppLoader]);
+  }, [taskId, dispatch, setErrorModal, navigation, setDisplayAppLoader]);
 
-  // ─── Lifecycle ───────────────────────────────────────────────────────────
+  // ─── GUARDS ─────────────────────────────────────────────
 
-  useEffect(() => {
-    return () => {
-      dispatch(resetMessageState());
-    };
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (taskId) {
-      dispatch(resetTaskState());
-      dispatch(fetchTaskForId(taskId));
-    }
-  }, [taskId, dispatch]);
-
-  // ── Show global error modal whenever the slice reports a task error ────────
-  // This is a real stack screen (pushed via navigation.navigate("TaskDetail", ...)),
-  // so "back" here means actually popping this screen off the stack.
-  useEffect(() => {
-    if (!error) return;
-
-    setErrorModal((prev) => ({
-      ...prev,
-      isModalOpen: true,
-      title: "Something went wrong",
-      subTitle:
-        typeof error === "string"
-          ? error
-          : ((error as any)?.message ??
-            "Unable to load this task. Please try again."),
-      onClickLeftButton: () => {
-        dispatch(clearTaskError());
-        navigation.goBack();
-      },
-    }));
-  }, [error, setErrorModal, navigation]);
-
-  // ─── Guards ──────────────────────────────────────────────────────────────
-
-  // Note: the old inline error <Center> block is removed — the global error
-  // modal (triggered above) now handles this. While `error` is set, we still
-  // fall through to the blank-box guard below so nothing half-renders behind
-  // the modal.
-
-  if (!loading && !task && !error) {
-    return (
-      <Center flex={1}>
-        <Text
-          style={{
-            color: "#9CA3AF", // coolGray.400
-          }}
-        >
-          Task not found
-        </Text>
-      </Center>
-    );
+  if (isDeleted.current) {
+    return <Box flex={1} bg="coolGray.50" />;
   }
 
-  // Essential guard: Returns a blank box so `onLayout` can safely measure the screen
-  // behind the global loader before the data is ready to be drawn.
-  if (containerDimensions.baseSize === 0 || !task) {
+  if (containerDimensions.baseSize === 0 || !task || task.taskId !== taskId) {
+    if (!loading && error && (!task || task.taskId !== taskId)) {
+      return (
+        <Center flex={1} bg="coolGray.50" onLayout={onLayout}>
+          <Text style={{ color: "#9CA3AF" }}>Task not found</Text>
+        </Center>
+      );
+    }
     return <Box flex={1} bg="coolGray.50" onLayout={onLayout} />;
   }
 
@@ -194,7 +216,6 @@ export default function TaskDetailScreen({ route }: any) {
     ? isTaskCreator
     : isProjectAdmin || isProjectEditor;
 
-  // ✅ This is our master flag for if the task is locked
   const isCompleted = task.status === true;
 
   const priorityCfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.MEDIUM;
@@ -207,8 +228,6 @@ export default function TaskDetailScreen({ route }: any) {
   // ─── Handlers ────────────────────────────────────────────────────────────
 
   const onHandleClickMessageButton = () => {
-    console.log(` i am call in TaskDeatil Screen`);
-
     onOpenMessageModel({
       deadline: task.taskDeadline,
       isDisplay: true,
@@ -225,7 +244,7 @@ export default function TaskDetailScreen({ route }: any) {
       taskId: task!.taskId,
       isProjectTask: isProjectTask,
       projectId: project?.projectId,
-      isComplete: task?.status ?? false,
+      isComplete: task.status ?? false,
     });
   };
 
@@ -250,10 +269,16 @@ export default function TaskDetailScreen({ route }: any) {
   };
 
   const handleDeleteTask = async () => {
-    onTapDeleteButton({
+    await onTapDeleteButton({
       type: "TASK",
-      isProjecttask: false,
+      isProjecttask: isProjectTask,
+      projectId: project?.projectId,
       taskId: task!.taskId,
+      onSuccess: () => {
+        isDeleted.current = true;
+        dispatch(clearTaskError());
+        navigation.goBack();
+      },
     });
   };
 
@@ -277,29 +302,32 @@ export default function TaskDetailScreen({ route }: any) {
 
   return (
     <Box flex={1} bg="coolGray.50" onLayout={onLayout}>
-      {/* ── Header ── */}
       <CommonDetailHeader
         title="Task Details"
         subtitle="Here's everything about this task."
-              onTabBackButton={() => navigation.goBack()}
+        onTabBackButton={() => navigation.goBack()}
         showEdit={canPerformOperation && !isCompleted}
         onEdit={() => setIsDisplayUpdateTask(true)}
         showMenuBar={canPerformOperation}
         menuOption={taskMenuOptions}
         fs={baseSize}
       />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "position"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      <KeyboardAwareScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={20}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: containerDimensions.height * 0.01,
+          paddingHorizontal: "4%",
+        }}
+        // 4. Attach RefreshControl here
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingBottom: containerDimensions.height * 0.05,
-            paddingHorizontal: "4%",
-          }}
-        >
+        {/* 5. Wrap everything in a key to force complete remounts and refetching of child APIs */}
+        <VStack width="100%" key={`task-content-${refreshKey}`}>
           {/* ── Task type + status badges ── */}
           <HStack
             justifyContent="space-between"
@@ -363,7 +391,7 @@ export default function TaskDetailScreen({ route }: any) {
               style={{
                 fontSize: adjustSizeToResolveZoomInIssue(baseSize * 0.06),
                 fontWeight: "800",
-                color: "#111827", // coolGray.900
+                color: "#111827",
                 marginBottom: adjustSizeToResolveZoomInIssue(fs.title * 0.85),
               }}
             >
@@ -372,20 +400,19 @@ export default function TaskDetailScreen({ route }: any) {
             <Text
               style={{
                 fontSize: adjustSizeToResolveZoomInIssue(fs.subTitle * 0.8),
-                color: "#6B7280", // coolGray.500
+                color: "#6B7280",
                 marginBottom: adjustSizeToResolveZoomInIssue(baseSize * 0.05),
               }}
             >
               {getShortText(task.taskDesc, 80) || "No description available."}
             </Text>
           </Box>
-          {/* ── Metadata chips ── */}
 
+          {/* ── Metadata chips ── */}
           <VStack
             space={adjustSizeToResolveZoomInIssue(baseSize * 0.03)}
             mb={adjustSizeToResolveZoomInIssue(baseSize * 0.04)}
           >
-            {/* Row 1: Priority & Deadline */}
             <HStack justifyContent="space-between">
               {/* Priority Card */}
               <HStack
@@ -436,7 +463,6 @@ export default function TaskDetailScreen({ route }: any) {
                     </Text>
                   </VStack>
                 </HStack>
-                {/* ✅ FIX: Added !isCompleted to hide edit pencil if task is done */}
                 {isTaskCreator && (
                   <Pressable
                     disabled={isCompleted}
@@ -471,7 +497,6 @@ export default function TaskDetailScreen({ route }: any) {
                   alignItems="center"
                   flex={1}
                 >
-                  {/* ✅ FIX: Added !isCompleted to hide edit pencil if task is done */}
                   {isTaskCreator && (
                     <Pressable
                       position={"absolute"}
@@ -489,7 +514,6 @@ export default function TaskDetailScreen({ route }: any) {
                       />
                     </Pressable>
                   )}
-
                   <Center
                     w={adjustSizeToResolveZoomInIssue(baseSize * 0.08)}
                     h={adjustSizeToResolveZoomInIssue(baseSize * 0.08)}
@@ -517,7 +541,7 @@ export default function TaskDetailScreen({ route }: any) {
                     <Text
                       style={{
                         fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
-                        color: "#6B7280", // coolGray.500
+                        color: "#6B7280",
                       }}
                     >
                       Deadline
@@ -529,7 +553,6 @@ export default function TaskDetailScreen({ route }: any) {
 
             {/* Row 2: Messages & Comments */}
             <HStack justifyContent="space-between">
-              {/* Messages Card */}
               <HStack
                 w="48%"
                 bg="white"
@@ -551,6 +574,55 @@ export default function TaskDetailScreen({ route }: any) {
                   >
                     <Icon
                       as={Ionicons}
+                      name="chatbox-outline"
+                      size={adjustSizeToResolveZoomInIssue(fs.icon * 0.5)}
+                      color="orange.500"
+                    />
+                  </Center>
+                  <VStack>
+                    <Text
+                      style={{
+                        fontSize: adjustSizeToResolveZoomInIssue(fs.meta * 1.5),
+                        fontWeight: "800",
+                        color: "#111827",
+                      }}
+                    >
+                      {task.messageCount}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
+                        color: "#6B7280",
+                      }}
+                    >
+                      Messages
+                    </Text>
+                  </VStack>
+                </HStack>
+              </HStack>
+
+              {/* <HStack
+                w="48%"
+                bg="white"
+                rounded="xl"
+                p={adjustSizeToResolveZoomInIssue(baseSize * 0.03)}
+                borderWidth={1}
+                borderColor="coolGray.100"
+                alignItems="center"
+              >
+                <HStack
+                  space={adjustSizeToResolveZoomInIssue(baseSize * 0.03)}
+                  alignItems="center"
+                >
+                  <Center
+                    w={adjustSizeToResolveZoomInIssue(baseSize * 0.1)}
+                    h={adjustSizeToResolveZoomInIssue(baseSize * 0.1)}
+                    rounded="lg"
+                    bg="orange.50"
+                  >
+                
+                    <Icon
+                      as={Ionicons}
                       name="chatbubble-outline"
                       size={adjustSizeToResolveZoomInIssue(fs.icon * 0.5)}
                       color="blue.500"
@@ -561,24 +633,22 @@ export default function TaskDetailScreen({ route }: any) {
                       style={{
                         fontSize: adjustSizeToResolveZoomInIssue(fs.meta * 1.5),
                         fontWeight: "800",
-                        color: "#111827", // coolGray.900
+                        color: "#111827",
                       }}
                     >
-                      {task.messageCount}
+                      {task.commentCount}
                     </Text>
                     <Text
                       style={{
                         fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
-                        color: "#6B7280", // coolGray.500
+                        color: "#6B7280",
                       }}
                     >
-                      Messages
+                      Comments
                     </Text>
                   </VStack>
                 </HStack>
-              </HStack>
-
-              {/* Comments Card */}
+              </HStack> */}
               <HStack
                 w="48%"
                 bg="white"
@@ -600,7 +670,7 @@ export default function TaskDetailScreen({ route }: any) {
                   >
                     <Icon
                       as={Ionicons}
-                      name="chatbox-outline"
+                      name="person-circle-outline"
                       size={adjustSizeToResolveZoomInIssue(fs.icon * 0.5)}
                       color="orange.500"
                     />
@@ -610,18 +680,18 @@ export default function TaskDetailScreen({ route }: any) {
                       style={{
                         fontSize: adjustSizeToResolveZoomInIssue(fs.meta * 1.5),
                         fontWeight: "800",
-                        color: "#111827", // coolGray.900
+                        color: "#111827",
                       }}
                     >
-                      {task.commentCount}
+                      {task.userRole}
                     </Text>
                     <Text
                       style={{
                         fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
-                        color: "#6B7280", // coolGray.500
+                        color: "#6B7280",
                       }}
                     >
-                      Comments
+                      Role
                     </Text>
                   </VStack>
                 </HStack>
@@ -671,7 +741,7 @@ export default function TaskDetailScreen({ route }: any) {
                         fontSize: adjustSizeToResolveZoomInIssue(
                           baseSize * 0.06,
                         ),
-                        color: "#9CA3AF", // coolGray.400
+                        color: "#0a3681",
                         fontWeight: "500",
                       }}
                     >
@@ -719,8 +789,8 @@ export default function TaskDetailScreen({ route }: any) {
                     style={{
                       flex: 1,
                       fontSize: adjustSizeToResolveZoomInIssue(baseSize * 0.04),
-                      fontWeight: "200",
-                      color: "#111827", // coolGray.900
+                      fontWeight: "500",
+                      color: "#111827",
                     }}
                   >
                     {getShortText(task.project.projectHeader, 50)}
@@ -743,12 +813,11 @@ export default function TaskDetailScreen({ route }: any) {
               style={{
                 fontSize: adjustSizeToResolveZoomInIssue(fs.title),
                 fontWeight: "700",
-                color: "#111827", // coolGray.900
+                color: "#111827",
               }}
             >
               Task Creator
             </Text>
-
             <HStack
               width={"100%"}
               justifyContent={"center"}
@@ -756,7 +825,6 @@ export default function TaskDetailScreen({ route }: any) {
               mt={"2%"}
               space={"2%"}
             >
-              {/* Left Column */}
               <VStack
                 width={"60%"}
                 space={adjustSizeToResolveZoomInIssue(fs.subTitle)}
@@ -782,13 +850,12 @@ export default function TaskDetailScreen({ route }: any) {
                       flex: 1,
                       fontSize: adjustSizeToResolveZoomInIssue(fs.subTitle),
                       fontWeight: "700",
-                      color: "#111827", // coolGray.900
+                      color: "#111827",
                     }}
                   >
                     {task.taskCreator?.fullName}
                   </Text>
                 </HStack>
-
                 <HStack
                   width={"100%"}
                   alignItems={"center"}
@@ -804,13 +871,12 @@ export default function TaskDetailScreen({ route }: any) {
                     style={{
                       flex: 1,
                       fontSize: adjustSizeToResolveZoomInIssue(fs.subTitle),
-                      color: "#3B82F6", // blue.500
+                      color: "#3B82F6",
                     }}
                   >
                     {task?.userRole}
                   </Text>
                 </HStack>
-
                 <HStack
                   width={"100%"}
                   alignItems={"center"}
@@ -828,7 +894,7 @@ export default function TaskDetailScreen({ route }: any) {
                       fontSize: adjustSizeToResolveZoomInIssue(
                         fs.subTitle * 0.8,
                       ),
-                      color: "#6B7280", // coolGray.500
+                      color: "#6B7280",
                     }}
                   >
                     {task.taskCreator?.email}
@@ -836,7 +902,6 @@ export default function TaskDetailScreen({ route }: any) {
                 </HStack>
               </VStack>
 
-              {/* Right Column */}
               <VStack
                 width={"40%"}
                 alignItems="flex-end"
@@ -849,7 +914,7 @@ export default function TaskDetailScreen({ route }: any) {
                       fontSize: adjustSizeToResolveZoomInIssue(
                         fs.subTitle * 0.85,
                       ),
-                      color: "#9CA3AF", // coolGray.400
+                      color: "#9CA3AF",
                       fontWeight: "500",
                     }}
                   >
@@ -858,21 +923,20 @@ export default function TaskDetailScreen({ route }: any) {
                   <Text
                     style={{
                       fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
-                      color: "#374151", // coolGray.700
+                      color: "#374151",
                       fontWeight: "500",
                     }}
                   >
                     {formatDate(task.createdAt, true)}
                   </Text>
                 </VStack>
-
                 <VStack alignItems="flex-start">
                   <Text
                     style={{
                       fontSize: adjustSizeToResolveZoomInIssue(
                         fs.subTitle * 0.85,
                       ),
-                      color: "#9CA3AF", // coolGray.400
+                      color: "#9CA3AF",
                       fontWeight: "500",
                     }}
                   >
@@ -881,7 +945,7 @@ export default function TaskDetailScreen({ route }: any) {
                   <Text
                     style={{
                       fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
-                      color: "#374151", // coolGray.700
+                      color: "#374151",
                       fontWeight: "500",
                     }}
                   >
@@ -907,28 +971,26 @@ export default function TaskDetailScreen({ route }: any) {
               style={{
                 fontSize: adjustSizeToResolveZoomInIssue(fs.title),
                 fontWeight: "800",
-                color: "#111827", // coolGray.900
+                color: "#111827",
                 marginBottom: adjustSizeToResolveZoomInIssue(baseSize * 0.03),
               }}
             >
               Task Information
             </Text>
-
             <Text
               style={{
                 fontSize: adjustSizeToResolveZoomInIssue(fs.subTitle),
                 fontWeight: "700",
-                color: "#111827", // coolGray.900
+                color: "#111827",
                 marginBottom: adjustSizeToResolveZoomInIssue(baseSize * 0.01),
               }}
             >
               Description
             </Text>
-
             <Text
               style={{
                 fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
-                color: "#6B7280", // coolGray.500
+                color: "#6B7280",
               }}
             >
               {task.taskDesc || "No description available."}
@@ -936,24 +998,18 @@ export default function TaskDetailScreen({ route }: any) {
           </Box>
 
           {/* ── Recent Messages ── */}
-
-          {!isDeleting && (
-            <RecentMessages
-              type="TASK"
-              baseSize={baseSize}
-              fs={fs}
-              isTaskCreator={isTaskCreator}
-              taskId={task.taskId}
-              currentUserId={user!.userId}
-              isAdmin={isProjectAdmin}
-              isEditor={isProjectAdmin}
-              isProjectTask={isProjectTask}
-              isCompleted={task.status}
-            />
-          )}
+          <RecentMessages
+            type={isProjectTask ? "PROJECT_TASK" : "TASK"}
+            baseSize={baseSize}
+            fs={fs}
+            taskId={task.taskId}
+            currentUserId={user!.userId}
+            isCompleted={task.status}
+            loginUserRole={task.userRole}
+          />
 
           {/* ── Comments preview ── */}
-          <VStack
+          {/* <VStack
             width={"100%"}
             space={adjustSizeToResolveZoomInIssue(baseSize * 0.03)}
             mb={adjustSizeToResolveZoomInIssue(baseSize * 0.02)}
@@ -964,12 +1020,11 @@ export default function TaskDetailScreen({ route }: any) {
                   style={{
                     fontSize: adjustSizeToResolveZoomInIssue(fs.title),
                     fontWeight: "700",
-                    color: "#111827", // coolGray.900
+                    color: "#111827",
                   }}
                 >
                   Comments
                 </Text>
-
                 <Center
                   bg="blue.500"
                   px={adjustSizeToResolveZoomInIssue(baseSize * 0.02)}
@@ -992,7 +1047,7 @@ export default function TaskDetailScreen({ route }: any) {
                 <Text
                   style={{
                     fontSize: adjustSizeToResolveZoomInIssue(fs.subTitle),
-                    color: "#3B82F6", // blue.500
+                    color: "#3B82F6",
                     fontWeight: "600",
                   }}
                 >
@@ -1011,7 +1066,7 @@ export default function TaskDetailScreen({ route }: any) {
               >
                 <Text
                   style={{
-                    color: "#9CA3AF", // coolGray.400
+                    color: "#9CA3AF",
                     fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
                   }}
                 >
@@ -1041,9 +1096,7 @@ export default function TaskDetailScreen({ route }: any) {
                         w={adjustSizeToResolveZoomInIssue(baseSize * 0.1)}
                         h={adjustSizeToResolveZoomInIssue(baseSize * 0.1)}
                         bg="blue.500"
-                        source={{
-                          uri: comment.commentSender?.profileImageUrl,
-                        }}
+                        source={{ uri: comment.commentSender?.profileImageUrl }}
                       >
                         {comment.commentSender?.name?.charAt(0) || "U"}
                       </NBAvatar>
@@ -1060,7 +1113,7 @@ export default function TaskDetailScreen({ route }: any) {
                                   baseSize * 0.1,
                                 ),
                                 fontWeight: "700",
-                                color: "#111827", // coolGray.900
+                                color: "#111827",
                               }}
                             >
                               {comment.commentSender?.name}
@@ -1070,7 +1123,7 @@ export default function TaskDetailScreen({ route }: any) {
                                 fontSize: adjustSizeToResolveZoomInIssue(
                                   baseSize * 0.1,
                                 ),
-                                color: "#9CA3AF", // coolGray.400
+                                color: "#9CA3AF",
                               }}
                             >
                               {comment.commentSender?.email}
@@ -1082,7 +1135,7 @@ export default function TaskDetailScreen({ route }: any) {
                                 fontSize: adjustSizeToResolveZoomInIssue(
                                   baseSize * 0.1,
                                 ),
-                                color: "#9CA3AF", // coolGray.400
+                                color: "#9CA3AF",
                               }}
                             >
                               {timeAgo(comment.createdAt)}
@@ -1120,7 +1173,7 @@ export default function TaskDetailScreen({ route }: any) {
                             fontSize: adjustSizeToResolveZoomInIssue(
                               baseSize * 0.1,
                             ),
-                            color: "#4B5563", // coolGray.600
+                            color: "#4B5563",
                           }}
                           numberOfLines={2}
                         >
@@ -1132,9 +1185,10 @@ export default function TaskDetailScreen({ route }: any) {
                 })}
               </Box>
             )}
-          </VStack>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </VStack> */}
+        </VStack>
+      </KeyboardAwareScrollView>
+
       {/* ── Bottom action bar ── */}
       <HStack
         bg="white"
@@ -1144,7 +1198,6 @@ export default function TaskDetailScreen({ route }: any) {
         shadow={3}
         space={adjustSizeToResolveZoomInIssue(baseSize * 0.05)}
       >
-        {/* ✅ FIX: Visually disabled if task is completed */}
         <Pressable
           flex={1}
           bg={isCompleted ? "coolGray.100" : "indigo.50"}
@@ -1154,7 +1207,7 @@ export default function TaskDetailScreen({ route }: any) {
           justifyContent="center"
           alignItems="center"
           onPress={onHandleClickMessageButton}
-          isDisabled={isCompleted} // Completely disables click
+          isDisabled={isCompleted}
           _pressed={{ bgColor: "indigo.600" }}
         >
           {({ isPressed }) => (
@@ -1199,8 +1252,7 @@ export default function TaskDetailScreen({ route }: any) {
             justifyContent="center"
             alignItems="center"
             onPress={handleDeleteTask}
-            isDisabled={isDeleting || isCompleted} // Completely disables click
-            opacity={isDeleting ? 0.6 : 1}
+            isDisabled={isCompleted}
             _pressed={{ bg: "red.500" }}
           >
             {({ isPressed }) => (

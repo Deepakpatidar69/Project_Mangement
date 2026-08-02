@@ -168,7 +168,7 @@ export const TaskCard = ({
                 </HStack>
 
                 <HStack space={3} alignItems="center">
-                  <HStack alignItems="center" space={1}>
+                  {/* <HStack alignItems="center" space={1}>
                     <Icon
                       as={Ionicons}
                       name="chatbubble-outline"
@@ -178,7 +178,7 @@ export const TaskCard = ({
                     <Text fontSize={meta} color="coolGray.500" fontWeight="500">
                       {task.commentCount}
                     </Text>
-                  </HStack>
+                  </HStack> */}
 
                   <HStack alignItems="center" space={1}>
                     <Icon

@@ -21,13 +21,6 @@ export type MessageAtomProps = {
   onTapCancel?: () => void;
 };
 
-export type MemberAtomProps = {
-  isDisplay: boolean;
-  projectId: string;
-  onClose: () => void;
-  onSuccess: () => void;
-};
-
 export interface MenuOption {
   id: string;
   label: string;

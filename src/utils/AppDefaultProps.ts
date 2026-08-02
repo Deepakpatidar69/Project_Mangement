@@ -1,10 +1,10 @@
+import { AddMemberModalProps } from "../modals/AddMemberModal";
 import { commonModalProps } from "../modals/CommonModel";
 import { UpdateDeadlineModalProps } from "../modals/UpdateDeadlineModal";
 import { UpdateRoleModalProps } from "../modals/UpdateMemberRole";
 import { UpdatePriorityModalProps } from "../modals/UpdatePriorityModal";
 import {
   AppLoaderProps,
-  MemberAtomProps,
   MessageAtomProps,
 } from "./props.utils";
 
@@ -22,13 +22,14 @@ export const PROJECT_DELETE_NOTE =
 export const DELETE_RIGHT_TEXT = "Confirm Delete";
 export const DELETE_LEFT_TEXT = "Cancel";
 
-export const MARK_COMPLETE_TASK_TITLE = "Mark as Complete";
+export const MARK_COMPLETE_TITLE = "Mark as Complete";
+export const MARK_INCOMPLETE_TITLE = "Mark as Incomplete";
+
 export const MARK_COMPLETE_TASK_SUBTITLE =
   "Are you sure you want to mark this task as finished?";
 export const MARK_COMPLETE_TASK_NOTE =
   "The task will be moved to your completed list.";
 
-export const MARK_COMPLETE_PROJECT_TITLE = "Mark as Complete";
 export const MARK_COMPLETE_PROJECT_SUBTITLE =
   "Are you sure you want to mark this project as finished?";
 export const MARK_COMPLETE_PROJECT_NOTE =
@@ -38,7 +39,6 @@ export const MARK_COMPLETE_LEFT_BUTTON = "Cancel";
 export const MARK_COMPLETE_RIGHT_BUTTON = "Mark Complete";
 export const MARK_INCOMPLETE_RIGHT_BUTTON = "Mark InComplete";
 
-export const MARK_INCOMPLETE_PROJECT_TITLE = "Mark as Incomplete";
 
 export const MARK_INCOMPLETE_PROJECT_SUBTITLE =
   "Are you sure you want to mark this project as incomplete?";
@@ -65,11 +65,8 @@ export const MessageAtomDefaultProps: MessageAtomProps = {
   onTapCancel: () => {},
 };
 
-export const MemberAtomDefaultProps: MemberAtomProps = {
-  isDisplay: false,
-  projectId: "",
-  onClose: () => {},
-  onSuccess: () => {},
+export const MemberAtomDefaultProps: AddMemberModalProps = {
+ isOpen : false
 };
 
 export const commonModalDefaultProps: commonModalProps = {

@@ -110,6 +110,7 @@ export default function ProjectTaskList() {
   const [page, setPage] = useState(0);
 
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // ─── Global Loader Logic ──────────────────────────────────────────────────
   const setDisplayAppLoader = useSetAtom(AppLoaderAtom);
@@ -231,6 +232,30 @@ export default function ProjectTaskList() {
     setPage((p) => p + 1);
   }, [tasksLoading]);
 
+  const onRefresh = useCallback(async () => {
+    if (!projectId) return;
+    setIsRefreshing(true);
+
+    // Reset pagination
+    setPage(0);
+    pageRef.current.skip = 0;
+
+    try {
+      await Promise.all([
+        dispatch(
+          fetchTaskForProject({
+            projectId,
+            fetchType,
+            limit: pageRef.current.limit,
+            skip: 0,
+          }),
+        ),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [projectId, fetchType, dispatch]);
+
   const filteredTasks = useMemo(() => {
     if (!search.trim()) return tasks;
     return tasks.filter((item) =>
@@ -262,7 +287,9 @@ export default function ProjectTaskList() {
     [cardWidth],
   );
 
-  const showTaskSkeleton = !initialLoadDone || (tasksLoading && page === 0);
+  const showTaskSkeleton =
+    (!initialLoadDone && !isRefreshing) ||
+    (tasksLoading && page === 0 && !isRefreshing);
 
   const isCompleted = singleProject?.status;
 
@@ -277,7 +304,7 @@ export default function ProjectTaskList() {
       <Box width={"100%"} height={"100%"} onLayout={onLayout}>
         {/* Render content only when container dimensions are ready */}
         {containerDimensions.baseSize > 0 && (
-          <VStack width={"100%"} height={"100%"} space="2%">
+          <VStack width={"100%"} height={"100%"} space="1%">
             <Box
               width="100%"
               bg="white"
@@ -339,7 +366,7 @@ export default function ProjectTaskList() {
               <Box position={"absolute"} mt={safeTop} right={"4%"}>
                 <Pressable
                   onPress={onClickCreateTask}
-                  p={"4%"}
+                  p={"2%"}
                   justifyContent={"center"}
                   alignItems={"center"}
                   px={"5%"}
@@ -381,7 +408,7 @@ export default function ProjectTaskList() {
                     />
                   ) : (
                     <LottieView
-                      source={getAnimationAssets("ADD_TASK6")}
+                      source={getAnimationAssets("ADD_TASK")}
                       autoPlay
                       loop
                       duration={3000}
@@ -404,7 +431,7 @@ export default function ProjectTaskList() {
               flex={1}
               px={containerDimensions.width * 0.02}
               width="100%"
-              pt="2%"
+              pt="1%"
               position="relative"
               zIndex={1000}
             >
@@ -442,6 +469,8 @@ export default function ProjectTaskList() {
                     keyExtractor={(item) => item.taskId}
                     renderItem={renderItem}
                     showsVerticalScrollIndicator={false}
+                    refreshing={isRefreshing}
+                    onRefresh={onRefresh}
                     contentContainerStyle={{
                       paddingTop: containerDimensions.height * 0.01,
                       paddingBottom: containerDimensions.height * 0.02,

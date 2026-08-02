@@ -1,11 +1,9 @@
-import { useDispatch } from "react-redux";
 import {
   atomStore,
   displayAddMemberModalAtom,
   DisplayCommonModalPopUpAtom,
   displayMessageModalAtom,
   isDeadlineUpdateModalAtom,
-  isDisplayDeleteModalPopUpAtom,
   isPriorityUpdateModalAtom,
   isUpdateMemberRoleModalAtom,
 } from "../utils/Constent";
@@ -18,17 +16,16 @@ import {
   MARK_COMPLETE_LEFT_BUTTON,
   MARK_COMPLETE_PROJECT_NOTE,
   MARK_COMPLETE_PROJECT_SUBTITLE,
-  MARK_COMPLETE_PROJECT_TITLE,
   MARK_COMPLETE_RIGHT_BUTTON,
   MARK_COMPLETE_TASK_NOTE,
   MARK_COMPLETE_TASK_SUBTITLE,
-  MARK_COMPLETE_TASK_TITLE,
+  MARK_COMPLETE_TITLE,
   MARK_INCOMPLETE_PROJECT_NOTE,
   MARK_INCOMPLETE_PROJECT_SUBTITLE,
-  MARK_INCOMPLETE_PROJECT_TITLE,
   MARK_INCOMPLETE_RIGHT_BUTTON,
   MARK_INCOMPLETE_TASK_NOTE,
   MARK_INCOMPLETE_TASK_SUBTITLE,
+  MARK_INCOMPLETE_TITLE,
   MemberAtomDefaultProps,
   MessageAtomDefaultProps,
   PROJECT_DELETE_NOTE,
@@ -45,6 +42,7 @@ import {
   deleteProject,
   updateProjectDeadline,
   updateProjectPriority,
+  updateProjectStats,
   updateProjectStatus,
 } from "../store/slices/ProjectSlice";
 import {
@@ -59,9 +57,18 @@ import {
   updateProjectTaskStatus,
 } from "../store/slices/TaskSlice";
 import { getAssets } from "../AssetsMapping/AssetMap";
-import { MemberRole, PriorityLevel } from "../store/slices/types";
+import { MemberProps, MemberRole, PriorityLevel } from "../store/slices/types";
 import { formatDate } from "../utils/Helper";
-import { updateMemberRole } from "../store/slices/MemberSlice";
+import { addMember, removeMember, updateMemberRole } from "../store/slices/MemberSlice";
+import { updateUserStats } from "../store/slices/authSlice";
+import {
+  removeRecentProject,
+  removeRecentTask,
+  updateRecentProject,
+  updateRecentTask,
+} from "../store/slices/DashboardSlice";
+import { onUpdateGlobalStateForProject, onUpdateGlobalStateForTask } from "../utils/GlobalStateUpdateUtils";
+import AddMemberModal from "./AddMemberModal";
 
 /**
  * ------------------------------------------------------------------------------------------------------
@@ -117,8 +124,16 @@ export const onSendMessage = async ({
       await store.dispatch(
         sendMessage({ message: message, projectId: projectId }),
       );
+      await onUpdateGlobalStateForProject({
+        entity: "MESSAGE",
+        action: "CREATE",
+      });
     } else {
       await store.dispatch(sendMessage({ message: message, taskId: taskId }));
+          await onUpdateGlobalStateForTask({
+            entity: "MESSAGE",
+            action: "CREATE",
+          });
     }
     onCloseMessageModal();
   } catch (error) {
@@ -140,6 +155,32 @@ export const onCloseMemberModal = async () => {
   atomStore.set(displayAddMemberModalAtom, MemberAtomDefaultProps);
 };
 
+const onAddMember = async ({
+  email,
+  projectId,
+  role,
+}: {
+  email: string;
+  projectId: string;
+  role: MemberRole;
+}) => {
+  await store
+    .dispatch(
+      addMember({ memberEmail: email, projectId: projectId, role: role }),
+    )
+    .unwrap();
+    onUpdateGlobalStateForProject({entity : "MEMBER" ,action : "CREATE"})
+  onCloseMemberModal();
+};
+
+export const handleRemoveMember = async (member: MemberProps) => {
+   await store.dispatch(removeMember({ projectId: member.projectId, memberId: member.memberId }));
+    await onUpdateGlobalStateForProject({
+      entity: "MEMBER",
+      action: "DELETE",
+    });
+  };
+
 export const onOpenAddMemberModal = async ({
   isDisplay,
   projectId,
@@ -147,20 +188,101 @@ export const onOpenAddMemberModal = async ({
   isDisplay: boolean;
   projectId: string;
 }) => {
+  console.log(`Is am call in this ..............`);
+
   atomStore.set(displayAddMemberModalAtom, {
-    isDisplay: isDisplay,
-    onClose: onCloseMemberModal,
-    onSuccess: onCloseMemberModal,
+    isOpen: isDisplay,
     projectId: projectId,
+    compHeight: 0,
+    compWidth: 0,
+    onSuccess: onAddMember,
+    onClose: onCloseMemberModal,
   });
 };
 
 /**
  * ------------------------------------------------------------------------------------------------------
- * --------------------------------------- FOR DELETE MODAL ------------------------------------------
+ * ------------------------------------- FOR DELETE TASK & PROJECT --------------------------------------
  * ------------------------------------------------------------------------------------------------------
  *
  */
+
+export const onCloseDeleteModal = async () => {
+  atomStore.set(DisplayCommonModalPopUpAtom, commonModalDefaultProps);
+};
+
+export const onTapDeleteButton = async ({
+  type,
+  taskId,
+  projectId,
+  isProjecttask = false,
+  onSuccess, // 1. Add onSuccess parameter
+}: {
+  type: "TASK" | "PROJECT";
+  taskId?: string;
+  projectId?: string;
+  isProjecttask?: boolean;
+  onSuccess?: () => void; // 2. Add type definition
+}) => {
+
+
+  // 3. Make this an async function so we can await it
+  const rightButtonFunc = async () => {
+    if (type == "PROJECT") {
+      await onClickDeleteProject({ projectId: projectId! });
+    } else {
+      await onClickDeleteTask({
+        taskId: taskId,
+        projectId: projectId,
+        isProjectTask: isProjecttask,
+      });
+    }
+    onSuccess?.();
+  };
+
+  const titleText =
+    type == "PROJECT" ? PROJECT_DELETE_TITLE : TASK_DELETE_TITLE;
+  const subTitleText =
+    type == "PROJECT" ? PROJECT_DELETE_SUBTITLE : TASK_DELETE_SUBTITLE;
+  const noteText = type == "PROJECT" ? PROJECT_DELETE_NOTE : TASK_DELETE_NOTE;
+  const rightButtonText = DELETE_RIGHT_TEXT;
+  const leftButtonText = DELETE_LEFT_TEXT;
+
+  const imgIcon = getAssets(
+    type == "PROJECT" ? "DELETE_PROJECT" : "DELETE_TASK",
+  );
+
+  atomStore.set(DisplayCommonModalPopUpAtom, {
+    isModalOpen: true,
+    title: titleText,
+    subTitle: subTitleText,
+    leftButtonText: leftButtonText,
+    rightButtonText: rightButtonText,
+    img: imgIcon,
+    note: noteText,
+    isShowBothButton: true,
+    // 4. Make the onClick async and use try/catch
+    onClickRightButton: async () => {
+      // 1. Instantly close the modal the millisecond the user taps "Delete"
+      // This makes the app feel extremely fast and avoids state collisions.
+      onCloseDeleteModal();
+
+      try {
+        await rightButtonFunc();
+      } catch (error) {
+        console.error("Deletion failed:", error);
+        // Optional: If it fails, you can trigger an error modal or toast here
+      }
+    },
+    onClickLeftButton: onCloseDeleteModal,
+    colorConfig: {
+      rightButtonBgColor: "red.500",
+      rightButtonTextColor: "white",
+      onPressRightButtonBgColor: "red.600",
+      noteTextColor: "orange.400",
+    },
+  });
+};
 
 export const onClickDeleteTask = async ({
   taskId,
@@ -175,66 +297,32 @@ export const onClickDeleteTask = async ({
     await store
       .dispatch(
         deleteProjectTask({
-          projectId: projectId as string,
           taskId: taskId as string,
+          projectId: projectId as string,
         }),
       )
       .unwrap();
+      await onUpdateGlobalStateForProject({
+        entity: "TASK",
+        action: "DELETE",
+      });
   } else {
+    console.log(`Task id in the :: onClickDeleteTask :: ${taskId}`);
+
     await store.dispatch(deletePrivateTask(taskId as string)).unwrap();
+    await store.dispatch(updateUserStats({ tasksCount: -1 }));
+    await store.dispatch(removeRecentTask(taskId as string));
   }
 };
 
 export const onClickDeleteProject = async ({
   projectId,
 }: {
-  projectId?: string;
+  projectId: string;
 }) => {
-  store.dispatch(deleteProject(projectId as string));
-};
-
-export const onOpenDeleteModal = async ({
-  subTitle,
-  title,
-  type,
-  isProjectTask = false,
-  note,
-  projectId,
-  taskId,
-}: {
-  title: string;
-  subTitle: string;
-  note?: string;
-  type: "PROJECT" | "TASK";
-  taskId?: string;
-  projectId?: string;
-  isProjectTask?: boolean;
-}) => {
-  const rightButtonText = type == "PROJECT" ? "Delete Project" : "Delete Task";
-  const noteText = "this operation can't be undo!";
-
-  const functionToBeCall = async () => {
-    type == "PROJECT"
-      ? onClickDeleteProject({ projectId: projectId })
-      : onClickDeleteTask({
-          taskId: taskId,
-          isProjectTask: isProjectTask,
-          projectId: projectId,
-        });
-  };
-
-  atomStore.set(isDisplayDeleteModalPopUpAtom, {
-    isModalOpen: true,
-    title: title,
-    subTitle: subTitle,
-    leftButtonText: "Cancel",
-    rightButtonText: rightButtonText,
-    note: noteText,
-    onClickRightButton: async () => {
-      await functionToBeCall();
-    },
-    onClickLeftButton: async () => {},
-  });
+  await store.dispatch(deleteProject(projectId as string)).unwrap();
+  await store.dispatch(updateUserStats({ projectsCount: -1 }));
+  await store.dispatch(removeRecentProject(projectId));
 };
 
 /**
@@ -505,74 +593,6 @@ export const onTapMemberRoleUpdate = async ({
 
 /**
  * ------------------------------------------------------------------------------------------------------
- * ------------------------------------- FOR DELETE TASK & PROJECT --------------------------------------
- * ------------------------------------------------------------------------------------------------------
- *
- */
-
-export const onCloseDeleteModal = () => {
-  atomStore.set(DisplayCommonModalPopUpAtom, commonModalDefaultProps);
-};
-
-export const onTapDeleteButton = async ({
-  type,
-  taskId,
-  projectId,
-  isProjecttask = false,
-}: {
-  type: "TASK" | "PROJECT";
-  taskId?: string;
-  projectId?: string;
-  isProjecttask?: boolean;
-}) => {
-  const rightButtonFunc =
-    type == "PROJECT"
-      ? () => onClickDeleteProject({ projectId: projectId })
-      : () =>
-          onClickDeleteTask({
-            taskId: taskId,
-            projectId: projectId,
-            isProjectTask: isProjecttask,
-          });
-
-  const titleText =
-    type == "PROJECT" ? PROJECT_DELETE_TITLE : TASK_DELETE_TITLE;
-  const subTitleText =
-    type == "PROJECT" ? PROJECT_DELETE_SUBTITLE : TASK_DELETE_SUBTITLE;
-  const noteText = type == "PROJECT" ? PROJECT_DELETE_NOTE : TASK_DELETE_NOTE;
-  const rightButtonText = DELETE_RIGHT_TEXT;
-  const leftButtonText = DELETE_LEFT_TEXT;
-
-  const imgIcon = getAssets(
-    type == "PROJECT" ? "DELETE_PROJECT" : "DELETE_TASK",
-  );
-
-  atomStore.set(DisplayCommonModalPopUpAtom, {
-    isModalOpen: true,
-    title: titleText,
-    subTitle: subTitleText,
-    leftButtonText: leftButtonText,
-    rightButtonText: rightButtonText,
-    img: imgIcon,
-    note: noteText,
-    isShowBothButton: true,
-    onClickRightButton: () => {
-      console.log(`OnDelete Delete Confirm Button`);
-      onCloseDeleteModal();
-    },
-    onClickLeftButton: onCloseDeleteModal,
-    colorConfig: {
-      rightButtonBgColor: "red.500",
-      rightButtonTextColor: "white",
-      onPressRightButtonBgColor: "red.600",
-
-      noteTextColor: "orange.400",
-    },
-  });
-};
-
-/**
- * ------------------------------------------------------------------------------------------------------
  * ---------------------------------------- FOR MARK COMPLETE -------------------------------------------
  * ------------------------------------------------------------------------------------------------------
  *
@@ -587,11 +607,13 @@ const onUpdateStatus = async ({
   type,
   isProjectTask,
   projectId,
+  isCompleted,
 }: {
   type: "PROJECT" | "TASK";
   taskId?: string;
   projectId?: string;
   isProjectTask?: boolean;
+  isCompleted?: boolean;
 }) => {
   try {
     if (!taskId && !projectId) {
@@ -600,13 +622,36 @@ const onUpdateStatus = async ({
     }
 
     if (type === "PROJECT" && projectId) {
-      store.dispatch(updateProjectStatus(projectId));
+      store.dispatch(updateProjectStatus(projectId)).unwrap();
+      store.dispatch(
+        updateUserStats({ completedProjectsCount: isCompleted ? -1 : 1 }),
+      );
+      store.dispatch(
+        updateRecentProject({
+          projectId: projectId,
+          changes: { status: isCompleted ? false : true },
+        }),
+      );
+
     } else if (isProjectTask && projectId && taskId) {
       store.dispatch(
         updateProjectTaskStatus({ taskId: taskId, projectId: projectId }),
       );
+         await onUpdateGlobalStateForProject({
+           entity: "TASK_COMPLETE",
+           action: isCompleted ? "DELETE" : "CREATE",
+         });
     } else if (type === "TASK" && taskId) {
-      store.dispatch(updatePrivateTaskStatus(taskId));
+      await store.dispatch(updatePrivateTaskStatus(taskId)).unwrap();
+      await store.dispatch(
+        updateUserStats({ completedTasksCount: isCompleted ? -1 : 1 }),
+      );
+      await store.dispatch(
+        updateRecentTask({
+          taskId: taskId,
+          changes: { status: isCompleted ? false : true },
+        }),
+      );
     }
   } catch (error) {
     console.error(
@@ -630,16 +675,19 @@ export const onTapMarkComplete = async ({
   isComplete?: boolean;
 }) => {
   const rightButtonFunc = () =>
-    onUpdateStatus({ type, isProjectTask, projectId, taskId });
+    onUpdateStatus({
+      type,
+      isProjectTask,
+      projectId,
+      taskId,
+      isCompleted: isComplete,
+    });
 
-  const titleText =
-    type == "PROJECT"
-      ? isComplete
-        ? MARK_INCOMPLETE_PROJECT_TITLE
-        : MARK_COMPLETE_PROJECT_TITLE
-      : isComplete
-        ? MARK_COMPLETE_TASK_TITLE
-        : MARK_COMPLETE_TASK_TITLE;
+  console.log(
+    `Is Complete is ::: ${isComplete} & type is :: ${type} :: ${MARK_INCOMPLETE_TITLE} :: ${MARK_COMPLETE_TITLE}`,
+  );
+
+  const titleText = isComplete ? MARK_INCOMPLETE_TITLE : MARK_COMPLETE_TITLE;
 
   const subTitleText =
     type == "PROJECT"
@@ -674,6 +722,8 @@ export const onTapMarkComplete = async ({
         : "MARK_COMPLETE_TASK",
   );
 
+  console.log(`Title text is :: ${titleText}`);
+
   atomStore.set(DisplayCommonModalPopUpAtom, {
     isModalOpen: true,
     title: titleText,
@@ -688,11 +738,11 @@ export const onTapMarkComplete = async ({
       onCloseMarkCompleteModal();
     },
     onClickLeftButton: onCloseMarkCompleteModal,
-    
+
     colorConfig: {
       rightButtonBgColor: isComplete ? "orange.500" : "green.600",
       rightButtonTextColor: "white",
-      onPressRightButtonBgColor: isComplete ? "orange.600" :"green.700",
+      onPressRightButtonBgColor: isComplete ? "orange.600" : "green.700",
 
       onPressLeftButtonBgColor: "coolGray.200",
       leftButtonBgColor: "coolGray.100",

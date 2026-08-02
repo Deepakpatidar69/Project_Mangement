@@ -19,19 +19,26 @@ import { commonModalProps } from "../modals/CommonModel";
 import { UpdateDeadlineModalProps } from "../modals/UpdateDeadlineModal";
 import { UpdatePriorityModalProps } from "../modals/UpdatePriorityModal";
 import { UpdateRoleModalProps } from "../modals/UpdateMemberRole";
+import { MemberRole } from "../store/slices/types";
+import { AddMemberModalProps } from "../modals/AddMemberModal";
 
-// export const BASE_URL = "http://192.168.1.8:5000/api";
-export const BASE_URL = "http://10.242.12.163:5000/api";
 export const TOKEN_KEY = "_@token";
 
 export const atomStore = getDefaultStore();
+
+// export const API_BASE_URL = "https://project-management-backend-l5q5.onrender.com/api";
+// export const API_BASE_URL = "http://10.105.123.163:5000/api";
+
+export const DEFAULT_OTP_RESEND_SECONDS = 30;
+
+export const API_RESOLVE_TIME_LIMIT = 60000;
 
 export const HEADER_LENGTH = 500;
 export const DESC_LENGTH = 2000;
 export const MAX_BIO_LENGTH = 250;
 
 export const DEFAULT_RECENT_TASK_LIMIT = 3;
-export const DEFAULT_RECEMT_PROJECT_LIMIT = 3;
+export const DEFAULT_RECENT_PROJECT_LIMIT = 3;
 
 export const DEFAULT_RECENT_MESSAGE_LIMIT = 3;
 export const DEFAULT_MESSAGE_LIMIT_ON_MESSAGE_SCREEN = 10;
@@ -56,12 +63,9 @@ export const displayMessageModalAtom = atom<MessageAtomProps>(
 
 export const isOnlineAtom = atom(true);
 
-export const displayAddMemberModalAtom = atom<{
-  isDisplay: boolean;
-  projectId: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}>(MemberAtomDefaultProps);
+export const displayAddMemberModalAtom = atom<
+  AddMemberModalProps
+>(MemberAtomDefaultProps);
 
 export const DisplayCommonModalPopUpAtom = atom<commonModalProps>(
   commonModalDefaultProps,

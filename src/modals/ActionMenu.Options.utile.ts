@@ -48,19 +48,19 @@ export const getMessageMenuOptions = ({
   onDeleteMessage: (messageId: string) => void;
 }) => {
   return [
-    {
-      id: "writeComment",
-      icon: "message-circle",
-      isVisible: true,
-      label: "Write Comment",
-      onPress: () => {
-        console.log("Write comment clicked");
-      },
-      bgNormalColor: "blue.50",
-      bgPressedColor: "blue.100",
-      iconColor: "#2563EB",
-      textColor: "#1D4ED8",
-    },
+    // {
+    //   id: "writeComment",
+    //   icon: "message-circle",
+    //   isVisible: true,
+    //   label: "Write Comment",
+    //   onPress: () => {
+    //     console.log("Write comment clicked");
+    //   },
+    //   bgNormalColor: "blue.50",
+    //   bgPressedColor: "blue.100",
+    //   iconColor: "#2563EB",
+    //   textColor: "#1D4ED8",
+    // },
     {
       id: "copyMessage",
       icon: "copy",

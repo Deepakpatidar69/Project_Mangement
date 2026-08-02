@@ -2,14 +2,14 @@
   "expo": {
     "name": "Project Manager",
     "slug": "Project-Manager",
-    "scheme": "myapp",
+    "scheme": "projectmanager",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/project_manager_icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/project_manager_splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -18,15 +18,36 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/project_manager_icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
-      "package": "com.dp.projectmanager"
+      "package": "com.dp.projectmanager",
+      "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "projectmanager-universallink.onrender.com",
+              "pathPrefix": "/open-project-manager"
+            },
+            {
+              "scheme": "http",
+              "host": "projectmanager-universallink.onrender.com",
+              "pathPrefix": "/open-project-manager"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": ["@react-native-community/datetimepicker"]
   }
 }

@@ -21,9 +21,7 @@ export const FooterLoadMoreButton: React.FC<LoadMoreButtonProps> = ({
   onLoadMore,
   type = "Project", // Defaults to "Project" if not provided
 }) => {
-  console.log(
-    `Current Count is :: ${currentCount} :: currentCount < totalCount :: ${currentCount < totalCount} :: isLoading :: ${isLoading}`,
-  );
+
 
   const hasMore = currentCount < totalCount;
 

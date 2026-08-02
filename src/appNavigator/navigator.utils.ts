@@ -12,7 +12,8 @@ export type SCREEN_TYPE =
   | "PROJECT_SCREEN"
   | "PROFILE_SCREEN"
   | "CREATE_PROJECT"
-  | "ProjectTaskScreen";
+  | "ProjectTaskScreen"
+  | "Change Password";
 
 // Routing/RouteStackProps.ts
 
@@ -50,12 +51,16 @@ export type RouteStackParamStack = {
   ProjectTaskList: {
     projectId: string;
   };
-  MessageListScreen : {
-    type : "PROJECT" | "TASK";
-    taskId ?: string;
-    projectId ?: string;
-
-  }
+  MessageListScreen: {
+    type: "PROJECT" | "TASK" | "PROJECT_TASK";
+    loginUserRole: "ADMIN" | "EDITOR" | "VIEWER" | "CREATOR";
+    taskId?: string;
+    projectId?: string;
+  };
+  ChangePasswordScreen: undefined;
+  ForgotPasswordScreen: undefined;
+  TransferOwnerShipScreen: undefined;
+  DeleteAccountScreen: undefined;
 };
 
 // ======================================================

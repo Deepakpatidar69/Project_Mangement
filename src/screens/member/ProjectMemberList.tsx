@@ -28,8 +28,12 @@ import LottieView from "lottie-react-native";
 import { getAnimationAssets } from "../../AssetsMapping/AssetMap";
 import AppLoader from "../../components/CustomLoader";
 import { MemberCard } from "./MemberCard";
-import { onTapMemberRoleUpdate } from "../../modals/model.utils";
+import {
+  handleRemoveMember,
+  onTapMemberRoleUpdate,
+} from "../../modals/model.utils";
 import { Ionicons } from "@expo/vector-icons";
+import { onUpdateGlobalStateForProject } from "../../utils/GlobalStateUpdateUtils";
 
 export interface ProjectMembersListProps {
   project: ProjectProps;
@@ -38,6 +42,7 @@ export interface ProjectMembersListProps {
   onClose: () => void;
   onAddMember: () => void;
   backgroundColor?: string;
+  isProjectCompleted: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -49,11 +54,9 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
   onClose,
   onAddMember,
   backgroundColor = "#F9FAFB",
+  isProjectCompleted = false,
 }) => {
   const [skip, setSkip] = useState<number>(0);
-  const [selectedMember, setSelectedMember] = useState<MemberProps | null>(
-    null,
-  );
 
   const { members, loading, error } = useSelector(
     (state: RootState) => state.member,
@@ -74,6 +77,7 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
   const avatarSize = adjustSizeToResolveZoomInIssue(baseSize * 0.12);
 
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [headerDim, setHeaderDim] = useState({ height: 0, width: 0 });
   const [skeletonContainerHeight, setSkeletonContainerHeight] = useState(0);
@@ -148,16 +152,6 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
     };
   }, [setErrorModal]);
 
-  const handleRemoveUser = ({
-    memberId,
-    projectId,
-  }: {
-    memberId: string;
-    projectId: string;
-  }) => {
-    dispatch(removeMember({ memberId: memberId, projectId: projectId }));
-  };
-
   const safeTop = getInsetTop();
 
   const closeGlobalMenu = () =>
@@ -171,12 +165,31 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
     });
   };
 
-  const onRemoveUser = (item: MemberProps) => {
-    handleRemoveUser({ memberId: item.memberId, projectId: item.projectId });
-  };
+  const onRefresh = useCallback(async () => {
+    if (!project) return;
+    setIsRefreshing(true);
+    setSkip(0);
+
+    try {
+      await dispatch(
+        fetchMembers({
+          projectId: project.projectId,
+          limit: DEFAULT_MEMBERS_LIMIT_ON_MEMBERSLIST,
+          skip: 0,
+        }),
+      );
+    } finally {
+      if (isMountedRef.current) {
+        setIsRefreshing(false);
+      }
+    }
+  }, [project, dispatch]);
 
   const renderMember = ({ item }: { item: MemberProps }) => {
     const isCurrentUser = item.assignedMemberId === currentUserId;
+
+    console.log(`Is Member Admin is :: ${isAdmin}`);
+
     return (
       <MemberCard
         item={item}
@@ -188,13 +201,15 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
         isCurrentUser={isCurrentUser}
         setGlobalMenu={setGlobalMenu}
         onUpdateRole={onUpdateRole}
-        onRemoveUser={onRemoveUser}
-        isProjectCompleted={true}
+        onRemoveUser={handleRemoveMember}
+        isProjectCompleted={isProjectCompleted}
       />
     );
   };
 
-  const showInitialSkeleton = !initialLoadDone || (loading && skip === 0);
+  const showInitialSkeleton =
+    (!initialLoadDone && !isRefreshing) ||
+    (loading && skip === 0 && !isRefreshing);
 
   const isCompleted = project.status;
 
@@ -299,7 +314,7 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
                         />
                       ) : (
                         <LottieView
-                          source={getAnimationAssets("AddMember")}
+                          source={getAnimationAssets("ADD_MEMBER")}
                           autoPlay
                           loop
                           duration={3000}
@@ -377,6 +392,8 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
                   keyExtractor={(item) => item.memberId}
                   renderItem={renderMember}
                   onScroll={closeGlobalMenu}
+                  refreshing={isRefreshing}
+                  onRefresh={onRefresh}
                   contentContainerStyle={{ paddingBottom: "5%", rowGap: "8%" }}
                   showsVerticalScrollIndicator={false}
                 />

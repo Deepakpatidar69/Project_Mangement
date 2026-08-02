@@ -7,18 +7,17 @@ import {
   VStack,
   Pressable,
   Spinner,
-  KeyboardAvoidingView,
   Select,
 } from "native-base";
 // @ts-ignore
 import { Feather } from "react-native-vector-icons";
-import { useAtom } from "jotai";
 import { useDispatch } from "react-redux";
 import { adjustSizeToResolveZoomInIssue } from "../utils/Helper";
 import { AppDispatch } from "../store";
 import { fetchSearchResult } from "../api/api.call";
-import { addMember, clearMemberError } from "../store/slices/MemberSlice";
-import { isDisplayErrorMessageAtom } from "../utils/Constent";
+import { addMember } from "../store/slices/MemberSlice";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { MemberRole } from "../store/slices/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,15 +33,23 @@ export interface AddMemberModalProps {
   /** Controls visibility */
   isOpen: boolean;
   /** Project to add the member to */
-  projectId: string;
+  projectId: string | null;
   /** Height of the modal card (exactly this height) */
   compHeight: number;
   /** Width of the modal card (exactly this width) */
   compWidth: number;
   /** Called when the user taps X or Cancel */
-  onClose: () => void;
+  onClose?: () => void;
   /** Called after a successful addMember dispatch */
-  onSuccess: () => void;
+  onSuccess?: ({
+    email,
+    projectId,
+    role,
+  }: {
+    email: string;
+    projectId: string;
+    role: MemberRole;
+  }) => void;
   /** Card background – default white */
   backgroundColor?: string;
   /** Overlay scrim color – default dark semi-transparent */
@@ -85,9 +92,6 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
   backgroundColor = "#ffffff",
   backdropColor = "rgba(12, 12, 12, 0.65)",
 }) => {
-  const dispatch = useDispatch<AppDispatch>();
-  const [, setErrorModal] = useAtom(isDisplayErrorMessageAtom);
-
   // Form state
   const [userId, setUserId] = useState("");
   const [role, setRole] = useState<Role>("VIEWER");
@@ -117,7 +121,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
       setError("");
       setLoading(false);
       setSearchLoading(false);
-      setSearchResults([]);
+      searchResults.length > 0 && setSearchResults([]);
       setIsUserSelected(false);
     }
   }, [isOpen]);
@@ -146,7 +150,6 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
   // ── Submit Logic ──────────────────────────────────────────────────────────
   const handleAdd = async () => {
-    // Simple client-side validation stays inline (not a backend error)
     if (!userId.trim()) {
       setError("Please search and select a user first.");
       return;
@@ -154,406 +157,414 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
     try {
       setLoading(true);
       setError("");
-      await dispatch(
-        addMember({ projectId, memberEmail: userId, role }),
-      ).unwrap();
-      onSuccess();
-    } catch (err: any) {
-      onClose?.();
 
-      setErrorModal((prev) => ({
-        ...prev,
-        isDisplay: true,
-        title: "Couldn't add member",
-        subtitle:
-          typeof err === "string"
-            ? err
-            : (err?.message ??
-              "Something went wrong while adding this member. Please try again."),
-        onClickLeftButton: () => {
-          dispatch(clearMemberError());
-        },
-      }));
+      onSuccess!({ email: userId, role: role, projectId: projectId! });
+      // Close the modal ONLY on success
+    } catch (err: any) {
+      // Instead of closing the modal, set the local error state
+      const errorMessage =
+        typeof err === "string"
+          ? err
+          : (err?.message ??
+            "Something went wrong while adding this member. Please try again.");
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
-      onClose?.();
     }
   };
-
-  // ── Make sure the modal doesn't linger after this component unmounts ──────
-  useEffect(() => {
-    return () => {
-      setErrorModal((prev) => ({ ...prev, isDisplay: false }));
-    };
-  }, [setErrorModal]);
 
   if (!isOpen) return null;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 999,
-        backgroundColor: backdropColor,
-      }}
+    <Box
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
+      zIndex={999}
+      bg={backdropColor}
     >
-      {/* ── Main Modal Card Frame ── */}
-      <Box
-        width={compWidth}
-        height={compHeight}
-        bg={backgroundColor}
-        borderRadius="3xl"
-        overflow="hidden"
-        shadow={6}
+      <KeyboardAwareScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={20}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
       >
-        {/* Drag Handle indicator top decoration */}
+        {/* ── Main Modal Card Frame ── */}
         <Box
-          height={"5%"}
-          width={"100%"}
-          alignItems="center"
-          pt={"1%"}
-          pb={"1%"}
+          width={compWidth}
+          height={compHeight}
+          bg={backgroundColor}
+          borderRadius="3xl"
+          overflow="hidden"
+          shadow={6}
         >
-          <Box w={10} h={1.5} bg="coolGray.300" borderRadius="full" />
-        </Box>
+          {/* Drag Handle indicator top decoration */}
+          <Box
+            height={"5%"}
+            width={"100%"}
+            alignItems="center"
+            pt={"1%"}
+            pb={"1%"}
+          >
+            <Box w={10} h={1.5} bg="coolGray.300" borderRadius="full" />
+          </Box>
 
-        {/* Content Area - Uses a unified content spacing to eliminate sparse gaps */}
-        <VStack height={"95%"} width={"100%"} px={"3%"} pb={"2%"} space={"2%"}>
-          {/* Header Layout */}
-          <VStack space={"2%"} width={"100%"} height={"10%"}>
-            <HStack justifyContent="space-between" alignItems="center">
-              <Text fontSize={titleSize} fontWeight="bold" color="coolGray.900">
-                Add New Member
-              </Text>
-              <Pressable
-                onPress={onClose}
-                bg="coolGray.100"
-                borderRadius="full"
-                p={2}
-              >
-                <Feather name="x" size={iconSize} color="#374151" />
-              </Pressable>
-            </HStack>
-            <Box h={0.5} bg="coolGray.100" />
-          </VStack>
-
-          {/* Form Input Block - Organized beautifully without blank gaps */}
-          <VStack width={"100%"} height={"65%"} space={"2%"}>
-            {/* Search Box Component Layout */}
-            <Box height={"35%"} width={"100%"}>
-              <Text
-                fontSize={labelSize}
-                fontWeight="semibold"
-                color="coolGray.900"
-                mb={2}
-              >
-                Search User
-              </Text>
-
-              <HStack
-                borderWidth={1}
-                borderColor="coolGray.200"
-                borderRadius="xl"
-                bg="white"
-                px={3}
-                py={2}
-                alignItems="center"
-                space={2}
-              >
-                <Feather name="search" size={iconSize} color="#9CA3AF" />
-                <TextInput
-                  placeholder="Enter User ID, Name, or Email"
-                  placeholderTextColor="#9CA3AF"
-                  value={userId}
-                  onChangeText={(text) => {
-                    setUserId(text);
-                    setError("");
-                    setIsUserSelected(false);
-                  }}
-                  style={{
-                    flex: 1,
-                    fontSize: bodySize,
-                    color: "#111827",
-                    paddingVertical: Platform.OS === "ios" ? 4 : 0,
-                  }}
-                />
-                {searchLoading && <Spinner size="sm" color="coolGray.400" />}
+          {/* Content Area */}
+          <VStack
+            height={"95%"}
+            width={"100%"}
+            px={"4%"}
+            pb={"3%"}
+            space={"2%"}
+          >
+            {/* Header Layout */}
+            <VStack space={"2%"} width={"100%"} height={"10%"}>
+              <HStack justifyContent="space-between" alignItems="center">
+                <Text
+                  fontSize={titleSize}
+                  fontWeight="bold"
+                  color="coolGray.900"
+                >
+                  Add New Member
+                </Text>
+                <Pressable
+                  onPress={onClose}
+                  bg="coolGray.100"
+                  borderRadius="full"
+                  p={2}
+                >
+                  <Feather name="x" size={iconSize} color="#374151" />
+                </Pressable>
               </HStack>
+              <Box h={0.5} bg="coolGray.100" />
+            </VStack>
 
-              {/* Float Overlayed Results Panel - Drops beautifully over content below safely */}
-              {searchResults.length > 0 && (
-                <Box
-                  position="absolute"
-                  top="100%"
-                  left={0}
-                  right={0}
-                  mt={1}
+            {/* Form Input Block - Using Flex instead of hard percentages for better responsiveness */}
+            <VStack width={"100%"} flex={1} space={"4%"} mt={"2%"}>
+              {/* Search Box Component Layout */}
+              <Box width={"100%"} zIndex={50}>
+                <Text
+                  fontSize={labelSize}
+                  fontWeight="semibold"
+                  color="coolGray.900"
+                  mb={2}
+                >
+                  Search User
+                </Text>
+
+                <HStack
+                  borderWidth={1}
+                  borderColor={error ? "red.400" : "coolGray.200"}
+                  borderRadius="xl"
+                  bg="white"
+                  px={3}
+                  py={2}
+                  alignItems="center"
+                  space={2}
+                >
+                  <Feather name="search" size={iconSize} color="#9CA3AF" />
+                  <TextInput
+                    placeholder="Enter User ID, Name, or Email"
+                    placeholderTextColor="#9CA3AF"
+                    value={userId}
+                    onChangeText={(text) => {
+                      setUserId(text);
+                      setError("");
+                      setIsUserSelected(false);
+                    }}
+                    style={{
+                      flex: 1,
+                      fontSize: bodySize,
+                      color: "#111827",
+                      paddingVertical: Platform.OS === "ios" ? 4 : 0,
+                    }}
+                  />
+                  {searchLoading && <Spinner size="sm" color="coolGray.400" />}
+                </HStack>
+
+                {/* ✨ IMPROVEMENT: Error Message placed directly under the search field */}
+                {!!error && (
+                  <HStack alignItems="center" space={1.5} mt={2} px={1}>
+                    <Feather
+                      name="alert-circle"
+                      size={smallSize}
+                      color="#ef4444"
+                    />
+                    <Text
+                      color="red.500"
+                      fontSize={smallSize}
+                      fontWeight="medium"
+                      flex={1}
+                    >
+                      {error}
+                    </Text>
+                  </HStack>
+                )}
+
+                {/* Float Overlayed Results Panel */}
+                {searchResults.length > 0 && (
+                  <Box
+                    position="absolute"
+                    top="100%"
+                    left={0}
+                    right={0}
+                    mt={1}
+                    borderWidth={1}
+                    borderColor="coolGray.200"
+                    borderRadius="xl"
+                    bg="white"
+                    shadow={5}
+                    overflow="hidden"
+                  >
+                    {searchResults.slice(0, 3).map((user, idx) => (
+                      <Pressable
+                        key={user.userId}
+                        onPress={() => {
+                          setUserId(user.email);
+                          setIsUserSelected(true);
+                          setSearchResults([]);
+                          setError("");
+                        }}
+                      >
+                        {({ isPressed }) => (
+                          <HStack
+                            px={4}
+                            py={3}
+                            space={3}
+                            alignItems="center"
+                            bg={isPressed ? "coolGray.50" : "white"}
+                            borderBottomWidth={
+                              idx < searchResults.slice(0, 3).length - 1 ? 1 : 0
+                            }
+                            borderColor="coolGray.100"
+                          >
+                            <Box
+                              w={avatarSize}
+                              h={avatarSize}
+                              borderRadius="full"
+                              bg={getAvatarColor(user.fullName)}
+                              justifyContent="center"
+                              alignItems="center"
+                            >
+                              <Text
+                                fontSize={adjustSizeToResolveZoomInIssue(
+                                  avatarSize * 0.38,
+                                )}
+                                fontWeight="bold"
+                                color="white"
+                              >
+                                {getInitials(user.fullName)}
+                              </Text>
+                            </Box>
+
+                            <VStack flex={1} space={0.5}>
+                              <Text
+                                fontSize={bodySize}
+                                fontWeight="bold"
+                                color="coolGray.900"
+                                numberOfLines={1}
+                              >
+                                {user.fullName}
+                              </Text>
+                              <Text
+                                fontSize={smallSize}
+                                color="coolGray.500"
+                                numberOfLines={1}
+                              >
+                                {user.email}
+                              </Text>
+                            </VStack>
+
+                            <Feather
+                              name="chevron-right"
+                              size={iconSize}
+                              color="#9CA3AF"
+                            />
+                          </HStack>
+                        )}
+                      </Pressable>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+
+              {/* Native Select Role Box Container */}
+              <Box width={"100%"} zIndex={10}>
+                <Text
+                  fontSize={labelSize}
+                  fontWeight="semibold"
+                  color="coolGray.900"
+                  mb={2}
+                >
+                  Role
+                </Text>
+                <Select
+                  selectedValue={role}
+                  minWidth="100%"
+                  accessibilityLabel="Choose Role"
+                  placeholder="Choose Role"
+                  fontSize={bodySize}
+                  fontWeight="semibold"
+                  color="coolGray.900"
                   borderWidth={1}
                   borderColor="coolGray.200"
                   borderRadius="xl"
                   bg="white"
-                  shadow={5}
-                  overflow="hidden"
-                  zIndex={30}
+                  py={3}
+                  px={3}
+                  _selectedItem={{
+                    bg: "indigo.50",
+                    _text: {
+                      color: "indigo.600",
+                      fontWeight: "bold",
+                    },
+                    endIcon: (
+                      <Feather
+                        name="check"
+                        size={iconSize * 0.85}
+                        color="#4F46E5"
+                      />
+                    ),
+                  }}
+                  dropdownIcon={
+                    <Box pr={3}>
+                      <Feather
+                        name="chevron-down"
+                        size={iconSize}
+                        color="#6B7280"
+                      />
+                    </Box>
+                  }
+                  onValueChange={(itemValue) => setRole(itemValue as Role)}
                 >
-                  {searchResults.slice(0, 3).map((user, idx) => (
-                    <Pressable
-                      key={user.userId}
-                      onPress={() => {
-                        setUserId(user.email);
-                        setIsUserSelected(true);
-                        setSearchResults([]);
-                        setError("");
-                      }}
-                    >
-                      {({ isPressed }) => (
-                        <HStack
-                          px={4}
-                          py={3}
-                          space={3}
-                          alignItems="center"
-                          bg={isPressed ? "coolGray.50" : "white"}
-                          borderBottomWidth={
-                            idx < searchResults.slice(0, 3).length - 1 ? 1 : 0
-                          }
-                          borderColor="coolGray.100"
-                        >
-                          <Box
-                            w={avatarSize}
-                            h={avatarSize}
-                            borderRadius="full"
-                            bg={getAvatarColor(user.fullName)}
-                            justifyContent="center"
-                            alignItems="center"
-                          >
-                            <Text
-                              fontSize={adjustSizeToResolveZoomInIssue(
-                                avatarSize * 0.38,
-                              )}
-                              fontWeight="bold"
-                              color="white"
-                            >
-                              {getInitials(user.fullName)}
-                            </Text>
-                          </Box>
-
-                          <VStack flex={1} space={0.5}>
-                            <Text
-                              fontSize={bodySize}
-                              fontWeight="bold"
-                              color="coolGray.900"
-                              numberOfLines={1}
-                            >
-                              {user.fullName}
-                            </Text>
-                            <Text
-                              fontSize={smallSize}
-                              color="coolGray.500"
-                              numberOfLines={1}
-                            >
-                              {user.email}
-                            </Text>
-                          </VStack>
-
-                          <Feather
-                            name="chevron-right"
-                            size={iconSize}
-                            color="#9CA3AF"
-                          />
-                        </HStack>
-                      )}
-                    </Pressable>
-                  ))}
-                </Box>
-              )}
-            </Box>
-
-            {/* Native Select Role Box Container */}
-            <Box overflow={"hidden"} height={"35%"} width={"100%"}>
-              <Text
-                fontSize={labelSize}
-                fontWeight="semibold"
-                color="coolGray.900"
-                mb={2}
-              >
-                Role
-              </Text>
-              <Select
-                selectedValue={role}
-                minWidth="100%"
-                accessibilityLabel="Choose Role"
-                placeholder="Choose Role"
-                fontSize={bodySize}
-                fontWeight="semibold"
-                color="coolGray.900"
-                borderWidth={1}
-                borderColor="coolGray.200"
-                borderRadius="xl"
-                bg="white"
-                py={3}
-                px={3}
-                _selectedItem={{
-                  bg: "indigo.50",
-                  _text: {
-                    color: "indigo.600",
-                    fontWeight: "bold",
-                  },
-                  endIcon: (
-                    <Feather
-                      name="check"
-                      size={iconSize * 0.85}
-                      color="#4F46E5"
-                    />
-                  ),
-                }}
-                dropdownIcon={
-                  <Box pr={3}>
-                    <Feather
-                      name="chevron-down"
-                      size={iconSize}
-                      color="#6B7280"
-                    />
-                  </Box>
-                }
-                onValueChange={(itemValue) => setRole(itemValue as Role)}
-              >
-                <Select.Item label="VIEWER" value="VIEWER" />
-                <Select.Item label="EDITOR" value="EDITOR" />
-              </Select>
-            </Box>
-
-            {/* Info Message Banner Row */}
-            <HStack
-              overflow={"hidden"}
-              height={"25%"}
-              width={"100%"}
-              bg="blue.50"
-              borderRadius="xl"
-              px={"3%"}
-              py={"2%"}
-              alignItems="center"
-              space={"2%"}
-            >
-              <Box
-                bg="blue.500"
-                borderRadius="full"
-                w={adjustSizeToResolveZoomInIssue(iconSize * 1.3)}
-                h={adjustSizeToResolveZoomInIssue(iconSize * 1.3)}
-                justifyContent="center"
-                alignItems="center"
-              >
-                <Feather
-                  name="info"
-                  size={adjustSizeToResolveZoomInIssue(iconSize * 0.6)}
-                  color="white"
-                />
+                  <Select.Item label="VIEWER" value="VIEWER" />
+                  <Select.Item label="EDITOR" value="EDITOR" />
+                </Select>
               </Box>
-              <Text flex={1} fontSize={smallSize} color="blue.700">
-                The member will have access to this project based on the
-                selected role.
-              </Text>
-            </HStack>
 
-            {/* Form Validation Errors (inline, client-side only) */}
-            {!!error && (
-              <Text
-                color="red.500"
-                fontSize={smallSize}
-                textAlign="center"
-                fontWeight="medium"
+              {/* Info Message Banner Row */}
+              <HStack
+                width={"100%"}
+                bg="blue.50"
+                borderRadius="xl"
+                px={"4%"}
+                py={"4%"}
+                alignItems="center"
+                space={"3%"}
+                mt="auto" // Pushes the banner to the bottom of the flex container
               >
-                {error}
-              </Text>
-            )}
-          </VStack>
+                <Box
+                  bg="blue.500"
+                  borderRadius="full"
+                  w={adjustSizeToResolveZoomInIssue(iconSize * 1.3)}
+                  h={adjustSizeToResolveZoomInIssue(iconSize * 1.3)}
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <Feather
+                    name="info"
+                    size={adjustSizeToResolveZoomInIssue(iconSize * 0.6)}
+                    color="white"
+                  />
+                </Box>
+                <Text flex={1} fontSize={smallSize} color="blue.700">
+                  The member will have access to this project based on the
+                  selected role.
+                </Text>
+              </HStack>
+            </VStack>
 
-          {/* Core Submit / Decline Actions Footing row */}
-          <HStack
-            height={"20%"}
-            width={"100%"}
-            justifyContent={"center"}
-            alignItems={"center"}
-            space={"5%"}
-          >
-            {/* Confirmation CTA */}
-            <Box
-              height={"100%"}
+            {/* Core Submit / Decline Actions Footing row */}
+            <HStack
+              height={"15%"}
+              width={"100%"}
               justifyContent={"center"}
               alignItems={"center"}
+              space={"5%"}
+              mt={"2%"}
             >
-              <Pressable onPress={handleAdd} isDisabled={loading}>
-                {({ isPressed }) => (
-                  <Box
-                    bg={loading || isPressed ? "primary.700" : "primary.500"}
-                    borderRadius="xl"
-                    py={"6%"}
-                    px={"8%"}
-                    justifyContent="center"
-                    alignItems="center"
-                  >
-                    <HStack space={2} alignItems="center">
-                      {loading ? (
-                        <Spinner size="sm" color="white" />
-                      ) : (
-                        <Feather
-                          name="user-plus"
-                          size={adjustSizeToResolveZoomInIssue(iconSize * 0.85)}
+              {/* Confirmation CTA */}
+              <Box flex={1}>
+                <Pressable
+                  onPress={handleAdd}
+                  isDisabled={loading || !userId.trim()}
+                >
+                  {({ isPressed }) => (
+                    <Box
+                      bg={
+                        loading || isPressed
+                          ? "primary.700"
+                          : !userId.trim()
+                            ? "primary.300" // visually disable if no input
+                            : "primary.500"
+                      }
+                      borderRadius="xl"
+                      py={"6%"}
+                      justifyContent="center"
+                      alignItems="center"
+                    >
+                      <HStack space={2} alignItems="center">
+                        {loading ? (
+                          <Spinner size="sm" color="white" />
+                        ) : (
+                          <Feather
+                            name="user-plus"
+                            size={adjustSizeToResolveZoomInIssue(
+                              iconSize * 0.85,
+                            )}
+                            color="white"
+                          />
+                        )}
+                        <Text
+                          fontSize={buttonSize}
+                          fontWeight="semibold"
                           color="white"
-                        />
-                      )}
+                        >
+                          Add Member
+                        </Text>
+                      </HStack>
+                    </Box>
+                  )}
+                </Pressable>
+              </Box>
+
+              {/* Decline Action */}
+              <Box flex={1}>
+                <Pressable onPress={onClose} isDisabled={loading}>
+                  {({ isPressed }) => (
+                    <Box
+                      borderWidth={1.5}
+                      borderColor={isPressed ? "coolGray.400" : "coolGray.300"}
+                      borderRadius="xl"
+                      py={"6%"}
+                      justifyContent="center"
+                      alignItems="center"
+                      bg={isPressed ? "coolGray.50" : "white"}
+                      opacity={loading ? 0.5 : 1}
+                    >
                       <Text
                         fontSize={buttonSize}
                         fontWeight="semibold"
-                        color="white"
+                        color="coolGray.900"
                       >
-                        Add Member
+                        Cancel
                       </Text>
-                    </HStack>
-                  </Box>
-                )}
-              </Pressable>
-            </Box>
-
-            {/* Decline Action */}
-            <Box
-              height={"100%"}
-              justifyContent={"center"}
-              alignItems={"center"}
-            >
-              <Pressable onPress={onClose}>
-                {({ isPressed }) => (
-                  <Box
-                    borderWidth={1.5}
-                    borderColor={isPressed ? "coolGray.400" : "coolGray.300"}
-                    borderRadius="xl"
-                    py={"6%"}
-                    px={"8%"}
-                    justifyContent="center"
-                    alignItems="center"
-                    bg={isPressed ? "coolGray.50" : "white"}
-                  >
-                    <Text
-                      fontSize={buttonSize}
-                      fontWeight="semibold"
-                      color="coolGray.900"
-                    >
-                      Cancel
-                    </Text>
-                  </Box>
-                )}
-              </Pressable>
-            </Box>
-          </HStack>
-        </VStack>
-      </Box>
-    </KeyboardAvoidingView>
+                    </Box>
+                  )}
+                </Pressable>
+              </Box>
+            </HStack>
+          </VStack>
+        </Box>
+      </KeyboardAwareScrollView>
+    </Box>
   );
 };
 

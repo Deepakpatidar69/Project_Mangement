@@ -3,15 +3,14 @@ import {
   Box,
   Text,
   Pressable,
-  ScrollView,
   HStack,
   VStack,
   Icon,
   FormControl,
   WarningOutlineIcon,
-  Spinner, // 👈 Added Spinner import
+  Spinner,
 } from "native-base";
-import { TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import { TextInput } from "react-native";
 import {
   Feather,
   Ionicons,
@@ -27,8 +26,6 @@ import {
   getInsetTop,
   getShortText,
 } from "../../utils/Helper";
-
-// 👇 Import the shared component and formatters
 import CalendarPicker, {
   formatDatePicker,
   formatTime,
@@ -44,7 +41,15 @@ import { PriorityLevel } from "../../store/slices/types";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RouteStackParamStack } from "../../appNavigator/navigator.utils";
-import { DESC_LENGTH, HEADER_LENGTH, isDisplayErrorMessageAtom } from "../../utils/Constent";
+import {
+  DESC_LENGTH,
+  HEADER_LENGTH,
+  isDisplayErrorMessageAtom,
+} from "../../utils/Constent";
+import { PRIORITIES } from "../utils/screen.utils";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { updateUserStats } from "../../store/slices/authSlice";
+import { onUpdateGlobalStateForProject } from "../../utils/GlobalStateUpdateUtils";
 
 export type TaskType = "PROJECT" | "PRIVATE";
 
@@ -62,41 +67,6 @@ export interface CreateTaskForm {
   priority: PriorityLevel;
   taskDeadline: Date;
 }
-
-const PRIORITIES = [
-  {
-    value: "HIGH",
-    label: "High",
-    iconName: "arrow-up-right",
-    iconColor: "#C62828",
-    borderColor: "#C62828",
-    selectedBg: "#FFEBEE",
-  },
-  {
-    value: "MEDIUM",
-    label: "Medium",
-    iconName: "minus-circle",
-    iconColor: "#F9A825",
-    borderColor: "#F9A825",
-    selectedBg: "#FFF8E1",
-  },
-  {
-    value: "LOW",
-    label: "Low",
-    iconName: "flag",
-    iconColor: "#2E7D32",
-    borderColor: "#2E7D32",
-    selectedBg: "#E8F5E9",
-  },
-  {
-    value: "URGENT",
-    label: "Urgent",
-    iconName: "zap",
-    iconColor: "#4527A0",
-    borderColor: "#4527A0",
-    selectedBg: "#EDE7F6",
-  },
-];
 
 function SectionHeader({
   iconName,
@@ -137,8 +107,6 @@ export default function CreateTaskScreen() {
 
   const route = useRoute<createTaskRoute>();
   const { onBack, taskType, project } = route.params;
-  console.log(`Task Type is :: ${taskType}`);
-  console.log(`Project Detail is :: ${JSON.stringify(project)}`);
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
@@ -166,10 +134,10 @@ export default function CreateTaskScreen() {
 
   const iconBoxSize = baseSize * 0.1;
   const illustrationSz = baseSize * 0.25;
-  const priorityCardW = baseSize * 0.2;
+  const priorityCardW = adjustSizeToResolveZoomInIssue(baseSize * 0.19);
 
   const [showCalendar, setShowCalendar] = useState(false);
-  const [isLoading, setIsLoading] = useState(false); // 👈 Added loading state
+  const [isLoading, setIsLoading] = useState(false);
   const isProject = taskType === "PROJECT";
 
   const {
@@ -181,26 +149,21 @@ export default function CreateTaskScreen() {
       taskHeader: "",
       taskDesc: "",
       priority: "LOW",
-      taskDeadline: new Date(new Date().getTime() + 60 * 60 * 1000), // Default 1 hr from now
+      taskDeadline: new Date(new Date().getTime() + 60 * 60 * 1000),
     },
   });
 
   const onHandleSubmit = async (data: CreateTaskForm) => {
-    setIsLoading(true); // 👈 Set loading to true when submission starts
+    setIsLoading(true);
     try {
       if (taskType == "TASK") {
-        // ⚠️ FIX: added .unwrap() so a rejected thunk actually throws here —
-        // before, a failed create would still fall through to navigation.goBack().
         await dispatch(createPrivateTask(data)).unwrap();
+        dispatch(updateUserStats({ tasksCount: 1 }));
       } else {
-        console.log(
-          `data ois ::: `,
-          JSON.stringify({ projectId: project!.projectId, ...data }),
-        );
-
         await dispatch(
           createProjectTask({ projectId: project!.projectId, ...data }),
         ).unwrap();
+      await onUpdateGlobalStateForProject({entity : "TASK" ,action : "CREATE"})
       }
       navigation.goBack();
     } catch (err: any) {
@@ -219,36 +182,24 @@ export default function CreateTaskScreen() {
         },
       }));
     } finally {
-      setIsLoading(false); // 👈 Ensure loading resets if something happens
+      setIsLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
-    >
-      <Box flex={1} justifyContent={"center"} alignItems={"center"} px={"3%"}>
-        <Box
-          width={"100%"}
-          height={"100%"}
-          pt={adjustSizeToResolveZoomInIssue(getInsetTop() * 2.5)}
-          onLayout={onLayout}
-        >
+    <Box flex={1} bg="coolGray.50" onLayout={onLayout}>
+      {baseSize > 0 && (
+        <>
           <Box
-            position={"absolute"}
-            left={2}
+            position="absolute"
+            left={5}
             top={getInsetTop() * 1.2}
             zIndex={2}
           >
             <Pressable
               onPress={onBack}
-              w={adjustSizeToResolveZoomInIssue(
-                containerDimensions.baseSize * 0.12,
-              )}
-              h={adjustSizeToResolveZoomInIssue(
-                containerDimensions.baseSize * 0.12,
-              )}
+              w={adjustSizeToResolveZoomInIssue(baseSize * 0.12)}
+              h={adjustSizeToResolveZoomInIssue(baseSize * 0.12)}
               rounded="full"
               bg="coolGray.100"
               alignItems="center"
@@ -256,9 +207,7 @@ export default function CreateTaskScreen() {
               justifyContent="center"
               _pressed={{
                 bg: "coolGray.200",
-                style: {
-                  transform: [{ scale: 0.9 }],
-                },
+                style: { transform: [{ scale: 0.9 }] },
               }}
             >
               <Icon
@@ -270,13 +219,19 @@ export default function CreateTaskScreen() {
             </Pressable>
           </Box>
 
-          {containerDimensions.width > 0 && (
-            <ScrollView
+          <Box
+            flex={1}
+            pt={adjustSizeToResolveZoomInIssue(getInsetTop() * 2.5)}
+            px="3%"
+          >
+            <KeyboardAwareScrollView
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingBottom: containerDimensions.height * 0.04,
-              }}
               keyboardShouldPersistTaps="handled"
+              bottomOffset={20} 
+              contentContainerStyle={{
+                flexGrow: 1,
+                paddingBottom: containerDimensions.height * 0.05,
+              }}
             >
               <Box px="4%" width={"100%"} pb={"4%"}>
                 <HStack
@@ -397,11 +352,6 @@ export default function CreateTaskScreen() {
                       >
                         {getShortText(project.projectHeader, 50)}
                       </Text>
-                      {/* {project.category && (
-                      <Text fontSize={fs.sectionSub} color="#9E9E9E">
-                        {project.category}
-                      </Text>
-                    )} */}
                     </VStack>
                     <VStack alignItems="flex-end" space={1}>
                       {project.membersCount !== undefined && (
@@ -752,7 +702,7 @@ export default function CreateTaskScreen() {
               <Box px="4%">
                 <Pressable
                   onPress={handleSubmit((data) => onHandleSubmit?.(data))}
-                  disabled={isLoading} // 👈 Disable button while loading
+                  disabled={isLoading}
                   bg="#5B3FFF"
                   borderRadius="xl"
                   py={2}
@@ -760,7 +710,7 @@ export default function CreateTaskScreen() {
                   justifyContent="center"
                   _pressed={{ opacity: 0.88 }}
                 >
-                  {isLoading ? ( // 👈 Conditional rendering for the spinner
+                  {isLoading ? (
                     <Spinner
                       color="white"
                       size={adjustSizeToResolveZoomInIssue(fs.heroTitle)}
@@ -785,10 +735,10 @@ export default function CreateTaskScreen() {
                   )}
                 </Pressable>
               </Box>
-            </ScrollView>
-          )}
-        </Box>
-      </Box>
-    </KeyboardAvoidingView>
+            </KeyboardAwareScrollView>
+          </Box>
+        </>
+      )}
+    </Box>
   );
 }

@@ -2,7 +2,6 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { NativeBaseProvider } from "native-base";
 import { Provider } from "react-redux";
-
 import { store } from "./src/store";
 import ApplicationNavigation from "./src/appNavigator/Navigation";
 import { AppContainer } from "./src/screens/HomeScreen/AppContainer";
@@ -11,11 +10,13 @@ import {
   configureGoogleSignIn,
   subscribeToAuthState,
 } from "./src/authentation/googleSignIn.utils";
-import { makeRedirectUri } from "expo-auth-session";
+import { KeyboardProvider } from "react-native-keyboard-controller";
+import { API_BASE_URL } from "@env";
 
 export default function App() {
   // 1. Initialize Network Listener
   useNetworkManager();
+
 
   useEffect(() => {
     // 2. Configure Google Sign-In globally on mount
@@ -37,16 +38,26 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  console.log("MY REDIRECT URI IS:", makeRedirectUri());
+
+  console.log(`--------------------------------------------------`);
+  console.log(`--------------------------------------------------`);
+  console.log(`--------------------------------------------------`);
+  console.log(`--------------------------------------------------`);
+  console.log(`Api Base Url is for the App.tsx ::: ${API_BASE_URL}`);
+  console.log(`--------------------------------------------------`);
+  console.log(`--------------------------------------------------`);
+  console.log(`--------------------------------------------------`);
 
   return (
     <Provider store={store}>
-      <NativeBaseProvider>
-        <AppContainer>
-          <ApplicationNavigation />
-        </AppContainer>
-        <StatusBar hidden />
-      </NativeBaseProvider>
+      <KeyboardProvider>
+        <NativeBaseProvider>
+          <AppContainer>
+            <ApplicationNavigation />
+          </AppContainer>
+          <StatusBar hidden />
+        </NativeBaseProvider>
+      </KeyboardProvider>
     </Provider>
   );
 }

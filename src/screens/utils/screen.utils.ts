@@ -1,7 +1,5 @@
 import { Foundation, Ionicons } from "@expo/vector-icons";
 import { MemberRole, PriorityLevel } from "../../store/slices/types";
-import { Animated } from "react-native";
-import { useRef } from "react";
 
 export const PRIORITY_FLAG_COLOR: Record<PriorityLevel, string> = {
   LOW: "#10B981",
@@ -9,6 +7,41 @@ export const PRIORITY_FLAG_COLOR: Record<PriorityLevel, string> = {
   HIGH: "#EF4444",
   URGENT: "#7C3AED",
 };
+
+export const PRIORITIES = [
+  {
+    value: "LOW",
+    label: "Low",
+    iconName: "flag",
+    iconColor: "#2E7D32",
+    borderColor: "#2E7D32",
+    selectedBg: "#E8F5E9",
+  },
+  {
+    value: "MEDIUM",
+    label: "Medium",
+    iconName: "minus-circle",
+    iconColor: "#F9A825",
+    borderColor: "#F9A825",
+    selectedBg: "#FFF8E1",
+  },
+  {
+    value: "HIGH",
+    label: "High",
+    iconName: "arrow-up-right",
+    iconColor: "#C62828",
+    borderColor: "#C62828",
+    selectedBg: "#FFEBEE",
+  },
+  {
+    value: "URGENT",
+    label: "Urgent",
+    iconName: "zap",
+    iconColor: "#4527A0",
+    borderColor: "#4527A0",
+    selectedBg: "#EDE7F6",
+  },
+];
 
 export const ROLE_CONFIG: Record<
   MemberRole,
@@ -56,5 +89,3 @@ export const getStatus = (status: boolean, deadline: Date) => {
   return Status_Config[status1];
 };
 
-
-  

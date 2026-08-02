@@ -1,14 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Actionsheet,
-  Avatar,
   Box,
   Button,
   FormControl,
   HStack,
   Icon,
   Pressable,
-  ScrollView,
   Text,
   View,
   VStack,
@@ -21,20 +19,18 @@ import DateTimePicker, {
 import Ionicons from "react-native-vector-icons/Ionicons";
 // @ts-ignore
 import { Feather } from "react-native-vector-icons";
-import { launchImageLibrary } from "react-native-image-picker";
 import { useSetAtom } from "jotai";
-import { AppLoaderAtom, MAX_BIO_LENGTH } from "../../utils/Constent"; // Ensure this path is correct
+import { AppLoaderAtom, MAX_BIO_LENGTH } from "../../utils/Constent";
 import { useContainerDimensions } from "../../hooks/OnlayoutHooks";
 import { CommonDetailHeader } from "../../components/CommonDetailHeader";
 import { AuthProps, Gender } from "../../store/slices/types";
 import { adjustSizeToResolveZoomInIssue } from "../../utils/Helper";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────
 
-// Every plain text field (name, phone, links, etc.) is capped at this
-// length. Bio is the one exception — it uses MAX_BIO_LENGTH instead.
 const MAX_FIELD_LENGTH = 50;
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -60,9 +56,6 @@ interface Scale {
   inputHeight: number;
 }
 
-// Fields the user is actually allowed to edit — everything system-owned
-// (userId, email, authProvider, googleId/githubId, verification flags,
-// timestamps, stats) is intentionally excluded from this shape.
 export interface EditableProfileFields {
   firstName: string;
   lastName: string;
@@ -76,10 +69,10 @@ export interface EditableProfileFields {
   department: string;
   company: string;
   employeeId: string;
-  experience: string; // kept as string for the input, parsed to number on save
-  joiningDate: string; // "YYYY-MM-DD" or ""
+  experience: string;
+  joiningDate: string;
 
-  dateOfBirth: string; // "YYYY-MM-DD" or ""
+  dateOfBirth: string;
   gender: Gender | "";
 
   address: string;
@@ -105,14 +98,6 @@ export interface EditableProfileFields {
 interface EditProfileSectionProps {
   user: AuthProps | null;
   onTapBack: () => void;
-  // Now receives the picked image (uri + optional file info) so the parent
-  // can handle the actual upload; the field's local preview is updated
-  // immediately inside this component regardless.
-  onTapChangeAvatar: (asset?: {
-    uri: string;
-    fileName?: string;
-    type?: string;
-  }) => void;
   onSave: (data: EditableProfileFields) => void | Promise<void>;
   isSaving?: boolean;
   isActive?: boolean;
@@ -126,8 +111,7 @@ const GENDER_OPTIONS: { label: string; value: Gender }[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
-// Date helpers — keep the field as a "YYYY-MM-DD" string in form state,
-// convert to/from a real Date only at the picker boundary.
+// Date helpers
 // ─────────────────────────────────────────────────────────────────────────
 
 function parseDateString(value: string): Date {
@@ -154,7 +138,7 @@ function formatDisplayDate(value: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Reusable section wrapper + labeled input
+// Components
 // ─────────────────────────────────────────────────────────────────────────
 
 function SectionCard({
@@ -186,9 +170,6 @@ function SectionCard({
   );
 }
 
-// Plain-text field built on RN's own TextInput (avoids native-base's
-// buggy Input/TextArea type overloads entirely). Capped at
-// MAX_FIELD_LENGTH characters by default; pass `maxLength` to override.
 function FieldInput({
   label,
   value,
@@ -231,19 +212,13 @@ function FieldInput({
           placeholderTextColor="#9CA3AF"
           keyboardType={keyboardType ?? "default"}
           maxLength={maxLength}
-          style={{
-            fontSize: scale.fsSm,
-            color: "#1F2937",
-            padding: 0,
-          }}
+          style={{ fontSize: scale.fsSm, color: "#1F2937", padding: 0 }}
         />
       </Box>
     </FormControl>
   );
 }
 
-// Tappable "input" that opens the native date picker. Displays a
-// human-readable date but stores/returns a "YYYY-MM-DD" string.
 function DateField({
   label,
   value,
@@ -264,8 +239,6 @@ function DateField({
   const [open, setOpen] = useState(false);
 
   const handleChange = (event: DateTimePickerEvent, selected?: Date) => {
-    // Android fires "dismissed" on cancel; iOS keeps the picker mounted
-    // inline so we close manually via the Done button flow below.
     if (Platform.OS === "android") {
       setOpen(false);
       if (event.type === "set" && selected) {
@@ -322,7 +295,6 @@ function DateField({
         />
       )}
 
-      {/* iOS spinner stays mounted until dismissed explicitly */}
       {open && Platform.OS === "ios" && (
         <HStack justifyContent="flex-end" mt={scale.spXs}>
           <Pressable onPress={() => setOpen(false)}>
@@ -342,10 +314,6 @@ function DateField({
   );
 }
 
-// Tappable "input" that opens a bottom sheet (Actionsheet) of options.
-// Unlike native-base's Select, the entire field — not just the chevron
-// icon — is wrapped in a single Pressable, so tapping anywhere on it
-// opens the sheet.
 function SelectField<T extends string>({
   label,
   value,
@@ -371,7 +339,6 @@ function SelectField<T extends string>({
       >
         {label}
       </FormControl.Label>
-
       <Pressable onPress={() => setOpen(true)}>
         {({ isPressed }) => (
           <HStack
@@ -450,45 +417,33 @@ function toEditableFields(user: AuthProps | null): EditableProfileFields {
   return {
     firstName: user?.firstName ?? "",
     lastName: user?.lastName ?? "",
-
     phone: user?.phone ?? "",
     profileImgUrl: user?.profileImgUrl ?? "",
-
     bio: user?.bio ?? "",
-
     designation: user?.designation ?? "",
     department: user?.department ?? "",
     company: user?.company ?? "",
     employeeId: user?.employeeId ?? "",
     experience: user?.experience != null ? String(user.experience) : "",
     joiningDate: user?.joiningDate ? user.joiningDate.slice(0, 10) : "",
-
     dateOfBirth: user?.dateOfBirth ? user.dateOfBirth.slice(0, 10) : "",
-    // Guard against any unexpected value (null/undefined/invalid string)
-    // ever reaching native-base's Select as something other than "" or a
-    // known Gender — that mismatch is what typically throws/warns.
     gender:
       user?.gender && GENDER_OPTIONS.some((g) => g.value === user.gender)
         ? user.gender
         : "",
-
     address: user?.address ?? "",
     city: user?.city ?? "",
     state: user?.state ?? "",
     country: user?.country ?? "",
     zipCode: user?.zipCode ?? "",
-
     language: user?.language ?? "",
     timezone: user?.timezone ?? "",
     website: user?.website ?? "",
-
     skills: user?.skills ?? [],
-
     githubUrl: user?.githubUrl ?? "",
     linkedinUrl: user?.linkedinUrl ?? "",
     twitterUrl: user?.twitterUrl ?? "",
     portfolioUrl: user?.portfolioUrl ?? "",
-
     isProfilePublic: user?.isProfilePublic ?? false,
   };
 }
@@ -500,7 +455,6 @@ function toEditableFields(user: AuthProps | null): EditableProfileFields {
 export const EditProfileSection = ({
   user,
   onTapBack,
-  onTapChangeAvatar,
   onSave,
   isSaving = false,
   isActive = true,
@@ -513,21 +467,16 @@ export const EditProfileSection = ({
   );
   const [skillDraft, setSkillDraft] = useState("");
 
-  // Re-sync local form state whenever a fresh user object arrives from the
-  // slice (e.g. after navigating in, or after a save completes).
   useEffect(() => {
     setFields(toEditableFields(user));
   }, [user]);
 
-  // ── Global loader control ────────────────────────────────────────────
   useEffect(() => {
     if (!isActive) return;
-
     if (containerDimensions.baseSize === 0) {
       setDisplayAppLoader({ isLoading: true, message: "Loading" });
       return;
     }
-
     setDisplayAppLoader({ isLoading: false, message: "" });
   }, [containerDimensions.baseSize, setDisplayAppLoader, isActive]);
 
@@ -541,22 +490,18 @@ export const EditProfileSection = ({
 
   const scale = useMemo<Scale | null>(() => {
     if (baseSize === 0) return null;
-
     const newBaseSize = baseSize * 1.4;
     return {
       fsXs: adjustSizeToResolveZoomInIssue(newBaseSize * 0.028),
       fsSm: adjustSizeToResolveZoomInIssue(newBaseSize * 0.032),
       fsMd: adjustSizeToResolveZoomInIssue(newBaseSize * 0.038),
       fsLg: adjustSizeToResolveZoomInIssue(newBaseSize * 0.048),
-
       spXs: adjustSizeToResolveZoomInIssue(newBaseSize * 0.01),
       spSm: adjustSizeToResolveZoomInIssue(newBaseSize * 0.02),
       spMd: adjustSizeToResolveZoomInIssue(newBaseSize * 0.035),
       spLg: adjustSizeToResolveZoomInIssue(newBaseSize * 0.05),
-
       iconSm: adjustSizeToResolveZoomInIssue(newBaseSize * 0.045),
       iconMd: adjustSizeToResolveZoomInIssue(newBaseSize * 0.06),
-
       avatarSize: adjustSizeToResolveZoomInIssue(newBaseSize * 0.24),
       cardRadius: adjustSizeToResolveZoomInIssue(newBaseSize * 0.035),
       inputHeight: adjustSizeToResolveZoomInIssue(newBaseSize * 0.1),
@@ -593,41 +538,6 @@ export const EditProfileSection = ({
     onSave(fields);
   };
 
-  // Opens the device's photo library, previews the picked image locally,
-  // and hands the asset up to the parent (via onTapChangeAvatar) so it can
-  // handle the actual upload/storage.
-  const handleChangeAvatar = async () => {
-    try {
-      const result = await launchImageLibrary({
-        mediaType: "photo",
-        selectionLimit: 1,
-        quality: 0.8,
-      });
-
-      if (result.didCancel) return;
-
-      if (result.errorCode) {
-        console.error("Image picker error:", result.errorMessage);
-        return;
-      }
-
-      const asset = result.assets?.[0];
-      if (!asset?.uri) return;
-
-      // Immediate local preview
-      setField("profileImgUrl", asset.uri);
-
-      // Let the parent handle the actual upload
-      onTapChangeAvatar({
-        uri: asset.uri,
-        fileName: asset.fileName,
-        type: asset.type,
-      });
-    } catch (err) {
-      console.error("handleChangeAvatar error:", err);
-    }
-  };
-
   if (!user) return null;
 
   return (
@@ -643,59 +553,16 @@ export const EditProfileSection = ({
               showMenuBar={false}
               fs={width}
             />
-
-            <ScrollView
-              width="100%"
+            <KeyboardAwareScrollView
+              style={{ width: "100%" }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingBottom: height * 0.1 }}
+              bottomOffset={20}
+              contentContainerStyle={{
+                flexGrow: 1,
+                paddingBottom: height * 0.1,
+              }}
             >
-              {/* Avatar */}
-              <VStack alignItems="center" mt={scale.spMd} mb={scale.spMd}>
-                <Box>
-                  <Avatar
-                    size={scale.avatarSize}
-                    source={
-                      fields.profileImgUrl
-                        ? { uri: fields.profileImgUrl }
-                        : undefined
-                    }
-                    borderWidth={3}
-                    borderColor="white"
-                    _text={{
-                        fontSize : adjustSizeToResolveZoomInIssue(scale.fsLg* 1.2)
-                    }}
-                  >
-                    {`${fields.firstName?.charAt(0) ?? ""}${fields.lastName?.charAt(0) ?? ""}`.toUpperCase()}
-                  </Avatar>
-                  <Pressable
-                    onPress={handleChangeAvatar}
-                    position="absolute"
-                    bottom={0}
-                    right={0}
-                    bg="indigo.600"
-                    borderRadius="full"
-                    p={scale.spXs}
-                    borderWidth={2}
-                    borderColor="white"
-                  >
-                    <Icon
-                      as={Ionicons}
-                      name="camera"
-                      size={scale.fsSm}
-                      color="white"
-                    />
-                  </Pressable>
-                </Box>
-                <Text
-                  fontSize={scale.fsXs}
-                  color="coolGray.400"
-                  mt={scale.spXs}
-                >
-                  Tap the camera icon to change photo
-                </Text>
-              </VStack>
-
               {/* Basic Information */}
               <SectionCard title="Basic Information" scale={scale}>
                 <HStack space={scale.spSm}>
@@ -723,9 +590,6 @@ export const EditProfileSection = ({
                   placeholder="+91 98765 43210"
                 />
 
-                {/* Bio — the one field that uses MAX_BIO_LENGTH instead
-                    of the shared MAX_FIELD_LENGTH, since it's meant to
-                    hold a short paragraph rather than a single value. */}
                 <FormControl>
                   <HStack
                     justifyContent="space-between"
@@ -815,8 +679,6 @@ export const EditProfileSection = ({
                     flex={1}
                   />
                 </HStack>
-
-                {/* Joining Date — native date picker, capped at today */}
                 <DateField
                   label="Joining Date"
                   value={fields.joiningDate}
@@ -828,8 +690,6 @@ export const EditProfileSection = ({
 
               {/* Personal */}
               <SectionCard title="Personal" scale={scale}>
-                {/* Date of Birth — native date picker, capped so a future
-                    date can't be picked */}
                 <DateField
                   label="Date of Birth"
                   value={fields.dateOfBirth}
@@ -837,10 +697,6 @@ export const EditProfileSection = ({
                   scale={scale}
                   maximumDate={new Date()}
                 />
-
-                {/* Gender — tapping ANYWHERE on the field (not just the
-                    chevron) opens a bottom sheet of options, same pattern
-                    as the DateField above. */}
                 <SelectField
                   label="Gender"
                   value={fields.gender}
@@ -1039,7 +895,7 @@ export const EditProfileSection = ({
               >
                 Save Changes
               </Button>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </VStack>
         )}
       </Box>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { TextInput, FlatList } from "react-native";
+import { TextInput, FlatList, Keyboard } from "react-native";
 import {
   Box,
   Text,
@@ -18,7 +18,6 @@ import {
   deleteMessage,
   fetchProjectMessages,
   fetchTaskMessages,
-  resetMessageState,
 } from "../store/slices/MessageSlice";
 import { MessageProps } from "../store/slices/types";
 import { onSendMessage } from "../modals/model.utils";
@@ -28,24 +27,25 @@ import {
   isDisplayErrorMessageAtom,
 } from "../utils/Constent";
 import { adjustSizeToResolveZoomInIssue } from "../utils/Helper";
-import { RouteProp, useNavigation } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { RouteStackParamStack } from "../appNavigator/navigator.utils";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAtom } from "jotai";
 import { MessageCard } from "../screens/message/MessageCard";
+import {
+  onUpdateGlobalStateForProject,
+  onUpdateGlobalStateForTask,
+} from "../utils/GlobalStateUpdateUtils";
 
 export interface RecentMessagesProps {
-  type: "PROJECT" | "TASK";
+  type: "PROJECT" | "TASK" | "PROJECT_TASK";
   baseSize: number;
   fs: any;
-  isAdmin?: boolean;
-  isEditor?: boolean;
-  isTaskCreator?: boolean;
-  isProjectTask?: boolean;
   taskId?: string;
   projectId?: string;
   currentUserId?: string;
-  isCompleted?: boolean; // ✅ Added isCompleted prop
+  isCompleted?: boolean;
+  loginUserRole: "ADMIN" | "EDITOR" | "VIEWER" | "CREATOR";
 }
 
 const RecentMessages = ({
@@ -54,12 +54,9 @@ const RecentMessages = ({
   fs,
   taskId,
   projectId,
-  isAdmin,
-  isEditor,
-  isTaskCreator,
   currentUserId,
-  isProjectTask,
   isCompleted = false,
+  loginUserRole,
 }: RecentMessagesProps) => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
@@ -69,15 +66,21 @@ const RecentMessages = ({
   const [recentMessages, setRecentMessages] = useState<MessageProps[]>([]);
   const [messageCount, setMessageCount] = useState<number>(0);
 
+  // ✅ Added local loading state for sending a message
+  const [isSending, setIsSending] = useState(false);
+
+  const inputRef = useRef<TextInput>(null);
+
   const dispatch = useDispatch<AppDispatch>();
   const [, setGlobalMenu] = useAtom(globalMenuAtom);
   const [, setIsDisplayError] = useAtom(isDisplayErrorMessageAtom);
 
   const onClickViewAll = () => {
     navigation.navigate("MessageListScreen", {
-      type: type,
+      type: type as "PROJECT" | "TASK",
       projectId: projectId,
       taskId: taskId,
+      loginUserRole: loginUserRole,
     });
   };
 
@@ -94,7 +97,6 @@ const RecentMessages = ({
   const msgError = type === "TASK" ? taskError : projectError;
   const isMountedRef = React.useRef(true);
 
-  // ✅ 1. Reusable helper to explicitly trigger the Error Modal
   const triggerErrorModal = useCallback(
     (title: string, error: any) => {
       const errorMessage =
@@ -125,16 +127,14 @@ const RecentMessages = ({
     };
   }, []);
 
-  // ✅ 2. Handle Initial Fetch Errors (using unwrap)
   useEffect(() => {
     if (!isMountedRef.current) return;
-    dispatch(resetMessageState());
 
     const load = async () => {
       if (!isMountedRef.current) return;
 
       try {
-        if (type === "TASK" && taskId) {
+        if ((type === "TASK" || type === "PROJECT_TASK") && taskId) {
           await dispatch(
             fetchTaskMessages({
               taskId: taskId,
@@ -161,11 +161,6 @@ const RecentMessages = ({
     load();
   }, [type, taskId, projectId, dispatch, triggerErrorModal]);
 
-  // ✅ 2b. Catch-all: watch the slice-level error directly, for any case where
-  // `state.message.taskError`/`projectError` gets set outside the explicit
-  // try/catch paths below (e.g. a dispatch fired from somewhere else that
-  // touches this same slice). Guarded so it won't double-fire on top of the
-  // catch blocks below for the SAME failure — see note underneath the file.
   useEffect(() => {
     if (!msgError) return;
     triggerErrorModal(
@@ -175,7 +170,7 @@ const RecentMessages = ({
   }, [msgError, type, triggerErrorModal]);
 
   useEffect(() => {
-    if (type === "TASK") {
+    if (type === "TASK" || type === "PROJECT_TASK") {
       setRecentMessages(taskMessages);
       setMessageCount(totalTaskCount);
     } else {
@@ -184,73 +179,66 @@ const RecentMessages = ({
     }
   }, [taskMessages, projectMessages, totalMessageCount, totalTaskCount, type]);
 
-  // ✅ 3. Handle Refresh Errors
-  const fetchMessages = useCallback(async () => {
-    try {
-      if (type == "TASK" && taskId) {
-        await dispatch(
-          fetchTaskMessages({
-            taskId: taskId,
-            limit: DEFAULT_RECENT_TASK_LIMIT,
-            skip: 0,
-          }),
-        ).unwrap();
-      }
-
-      if (type == "PROJECT" && projectId) {
-        await dispatch(
-          fetchProjectMessages({
-            projectId: projectId,
-            limit: DEFAULT_RECENT_TASK_LIMIT,
-            skip: 0,
-          }),
-        ).unwrap();
-      }
-    } catch (error) {
-      triggerErrorModal("Refresh Failed", error);
-    }
-  }, [type, taskId, projectId, dispatch, triggerErrorModal]);
-
-  // ✅ 4. Handle Sending Errors
   const handleSendMessage = async () => {
-    if (!messageText.trim() || isCompleted) return; // Extra safety check
+    if (!messageText.trim() || isCompleted) return;
     try {
+      setIsSending(true); // ✅ Trigger sending spinner
       await onSendMessage({
         message: messageText,
-        type: type,
+        type: type as "PROJECT" | "TASK",
         taskId: taskId,
         projectId: projectId,
       });
       setMessageText("");
+      Keyboard.dismiss();
     } catch (error: any) {
       console.log("Error sending message:", error);
       triggerErrorModal("Send Failed", error);
+    } finally {
+      setIsSending(false); // ✅ Stop sending spinner
     }
   };
 
-  // ✅ 5. Handle Delete Errors
   const onDeleteMessage = useCallback(
     async (messageId: string) => {
       try {
         await dispatch(
           deleteMessage({ messageId, isTask: type === "TASK" }),
         ).unwrap();
-        fetchMessages();
+
+        if (type === "PROJECT") {
+          await onUpdateGlobalStateForProject({
+            entity: "MESSAGE",
+            action: "DELETE",
+          });
+        } else {
+          await onUpdateGlobalStateForTask({
+            entity: "MESSAGE",
+            action: "DELETE",
+          });
+        }
       } catch (error) {
         triggerErrorModal("Action Not Allowed", error);
       }
     },
-    [dispatch, fetchMessages, type, triggerErrorModal],
+    [dispatch, type, triggerErrorModal],
   );
 
-  // --- FLATLIST RENDER HELPERS ---
   const slicedMessages = recentMessages?.slice(0, DEFAULT_RECENT_TASK_LIMIT);
 
   const renderMessageItem = useCallback(
     ({ item, index }: { item: MessageProps; index: number }) => {
-      const isAllowToDelete = !isProjectTask
-        ? isTaskCreator
-        : isAdmin || isEditor;
+      const isMessageCreator = item.messageSender.userId === currentUserId;
+
+      let isAllowToDelete = false;
+
+      if (type === "PROJECT" || type === "PROJECT_TASK") {
+        isAllowToDelete =
+          loginUserRole === "ADMIN" ||
+          (loginUserRole === "EDITOR" && isMessageCreator);
+      } else {
+        isAllowToDelete = loginUserRole === "CREATOR";
+      }
 
       return (
         <MessageCard
@@ -262,8 +250,15 @@ const RecentMessages = ({
           onDeleteMessage={onDeleteMessage}
           setGlobalMenu={setGlobalMenu}
           isAllowToDelete={isAllowToDelete}
-          isProjectTask={isProjectTask}
           isCompleted={isCompleted}
+          messageType={
+            type
+            // type === "PROJECT"
+            //   ? "PROJECT"
+            //   : type === "PROJECT_TASK"
+            //     ? "PROJECT_TASK"
+            //     : "TASK"
+          }
         />
       );
     },
@@ -273,27 +268,35 @@ const RecentMessages = ({
       fs,
       type,
       currentUserId,
-      isTaskCreator,
-      isAdmin,
-      isEditor,
       onDeleteMessage,
       setGlobalMenu,
+      isCompleted,
+      loginUserRole,
     ],
   );
 
+  // ✅ Replaced text with visual spinner component for Empty List loading
   const renderEmptyList = () => (
-    <Box width={baseSize * 0.92} my={baseSize * 0.01} shadow={2}>
-      <Box
-        width={baseSize * 0.9}
-        my={baseSize * 0.01}
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Text color="coolGray.700">
-          {msgLoading ? "Loading..." : "No messages yet"}
+    <Center width="100%" py={adjustSizeToResolveZoomInIssue(baseSize * 0.05)}>
+      {msgLoading ? (
+        <HStack space={3} alignItems="center">
+          <Spinner color="indigo.500" />
+          <Text
+            color="coolGray.700"
+            fontSize={adjustSizeToResolveZoomInIssue(fs.subTitle)}
+          >
+            Loading messages...
+          </Text>
+        </HStack>
+      ) : (
+        <Text
+          color="coolGray.500"
+          fontSize={adjustSizeToResolveZoomInIssue(fs.subTitle)}
+        >
+          No messages yet
         </Text>
-      </Box>
-    </Box>
+      )}
+    </Center>
   );
 
   return (
@@ -346,7 +349,7 @@ const RecentMessages = ({
           </Pressable>
         </HStack>
 
-        {/* --- FLATLIST REPLACES SCROLLVIEW --- */}
+        {/* --- FLATLIST --- */}
         <Box
           rounded="2xl"
           m={1}
@@ -379,7 +382,7 @@ const RecentMessages = ({
         >
           <HStack
             flex={1}
-            bg={isCompleted ? "coolGray.100" : "white"} // ✅ Gray out if completed
+            bg={isCompleted ? "coolGray.100" : "white"}
             borderRadius="xl"
             borderWidth={1}
             borderColor={isFocused ? "indigo.500" : "coolGray.200"}
@@ -388,39 +391,42 @@ const RecentMessages = ({
             py={adjustSizeToResolveZoomInIssue(baseSize * 0.02)}
           >
             <TextInput
+              ref={inputRef}
               style={{
                 flex: 1,
                 fontSize: fs.subTitle,
-                color: isCompleted ? "#9CA3AF" : "#111827", // ✅ Gray text if completed
+                color: isCompleted ? "#9CA3AF" : "#111827",
                 paddingVertical: adjustSizeToResolveZoomInIssue(
                   baseSize * 0.02,
                 ),
               }}
               placeholder={
                 isCompleted
-                  ? `Chat closed ( ${type == "PROJECT" ? "Project" : "Task"} Completed)`
+                  ? `Chat closed (${type == "PROJECT" ? "Project" : "Task"} Completed)`
                   : `Write a message...`
-              } // ✅ Dynamic Placeholder
+              }
               placeholderTextColor="#9CA3AF"
               value={messageText}
               onChangeText={setMessageText}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               multiline
-              editable={!isCompleted} // ✅ Disable typing if completed
+              editable={!isCompleted}
             />
           </HStack>
 
           <Pressable
-            bg={isCompleted ? "coolGray.400" : "indigo.600"} // ✅ Gray out button if completed
+            bg={isCompleted ? "coolGray.400" : "indigo.600"}
             p={adjustSizeToResolveZoomInIssue(baseSize * 0.03)}
             borderRadius="xl"
             onPress={handleSendMessage}
-            isDisabled={msgLoading || !messageText.trim() || isCompleted} // ✅ Disable press if completed
+            // ✅ Bind disabled state to local isSending so users can't spam send
+            isDisabled={isSending || !messageText.trim() || isCompleted}
             _disabled={{ opacity: 0.6 }}
             _pressed={{ bg: "indigo.700" }}
           >
-            {msgLoading ? (
+            {/* ✅ Spinner now binds to isSending instead of global msgLoading */}
+            {isSending ? (
               <Spinner color="white" size="sm" />
             ) : (
               <Icon

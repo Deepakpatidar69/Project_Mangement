@@ -27,9 +27,9 @@ interface MessageCardProps {
   fs: any;
   currentUserId?: string;
   isAllowToDelete?: boolean;
-  isProjectTask?: boolean;
   onDeleteMessage: (id: string) => void;
   setGlobalMenu: any;
+  messageType : "PROJECT" | "TASK" | "PROJECT_TASK";
   isCompleted : boolean;
 }
 
@@ -72,15 +72,14 @@ function getRoleBadgeColors(label: string) {
 
 export const MessageCard = ({
   msg,
-  isLast,
   baseSize,
   fs,
   currentUserId,
   isAllowToDelete = false,
   onDeleteMessage,
   setGlobalMenu,
-  isProjectTask,
-  isCompleted
+  isCompleted,
+  messageType
 }: MessageCardProps) => {
   const triggerRef = useRef<View>(null);
 
@@ -90,7 +89,20 @@ export const MessageCard = ({
     ? msg.messageSender.name?.charAt(0).toUpperCase()
     : "U";
 
-  const roleLabel = isProjectTask ? `${msg.messageSender.userRole?.charAt(0)}${msg.messageSender.userRole?.slice(1).toLowerCase()}` : "CREATOR";
+
+    const getLabelName = (messageType : "PROJECT" | "TASK" | "PROJECT_TASK") => {
+      if(messageType === "PROJECT") {
+        return `${msg.messageSender.userRole?.charAt(0)}${msg.messageSender.userRole?.slice(1).toLowerCase()}`;
+      }
+     else if(messageType === "PROJECT_TASK") {
+        return `${msg.messageSender.userRole?.charAt(0)}${msg.messageSender.userRole?.slice(1).toLowerCase()}`;
+      }else{
+        return "CREATOR";
+      }
+
+    }
+
+  const roleLabel = getLabelName(messageType);
 
   const roleBadge = getRoleBadgeColors(roleLabel);
 
@@ -229,7 +241,7 @@ export const MessageCard = ({
                 </Text>
               </HStack>
 
-              <HStack
+              {/* <HStack
                 alignItems="center"
                 space={1}
                 bg="coolGray.50"
@@ -250,7 +262,7 @@ export const MessageCard = ({
                 >
                   {msg.commentCount}
                 </Text>
-              </HStack>
+              </HStack> */}
             </HStack>
           </VStack>
         </HStack>

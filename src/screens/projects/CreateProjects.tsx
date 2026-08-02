@@ -3,15 +3,14 @@ import {
   Box,
   Text,
   Pressable,
-  ScrollView,
   HStack,
   VStack,
   Icon,
   FormControl,
   WarningOutlineIcon,
-  Spinner, // 👈 Added Spinner import
+  Spinner,
 } from "native-base";
-import { Platform, TextInput, KeyboardAvoidingView } from "react-native";
+import { Platform, TextInput } from "react-native";
 // @ts-ignore
 import { Feather, MaterialCommunityIcons } from "react-native-vector-icons";
 import { useForm, Controller } from "react-hook-form";
@@ -22,19 +21,28 @@ import {
   getInsetTop,
 } from "../../utils/Helper";
 
-// 👇 Import the shared component and formatters
 import CalendarPicker, {
   formatDatePicker,
   formatTime,
 } from "../../components/CalenderPicker";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../store";
-import { clearProjectError, createProject } from "../../store/slices/ProjectSlice";
+import {
+  clearProjectError,
+  createProject,
+} from "../../store/slices/ProjectSlice";
 import { PriorityLevel } from "../../store/slices/types";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { RouteStackParamStack } from "../../appNavigator/navigator.utils";
-import { DESC_LENGTH, HEADER_LENGTH, isDisplayErrorMessageAtom } from "../../utils/Constent";
+import {
+  DESC_LENGTH,
+  HEADER_LENGTH,
+  isDisplayErrorMessageAtom,
+} from "../../utils/Constent";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { PRIORITIES } from "../utils/screen.utils";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { updateUserStats } from "../../store/slices/authSlice";
 
 interface CreateProjectForm {
   projectHeader: string;
@@ -42,41 +50,6 @@ interface CreateProjectForm {
   priority: PriorityLevel;
   projectDeadline: Date;
 }
-
-const PRIORITIES = [
-  {
-    value: "LOW",
-    label: "Low",
-    iconName: "flag",
-    iconColor: "#2E7D32",
-    borderColor: "#2E7D32",
-    selectedBg: "#E8F5E9",
-  },
-  {
-    value: "MEDIUM",
-    label: "Medium",
-    iconName: "minus-circle",
-    iconColor: "#F9A825",
-    borderColor: "#F9A825",
-    selectedBg: "#FFF8E1",
-  },
-  {
-    value: "HIGH",
-    label: "High",
-    iconName: "arrow-up-right",
-    iconColor: "#C62828",
-    borderColor: "#C62828",
-    selectedBg: "#FFEBEE",
-  },
-  {
-    value: "URGENT",
-    label: "Urgent",
-    iconName: "zap",
-    iconColor: "#4527A0",
-    borderColor: "#4527A0",
-    selectedBg: "#EDE7F6",
-  },
-];
 
 function SectionHeader({
   iconName,
@@ -152,10 +125,10 @@ export default function CreateProjectScreen() {
 
   const iconBoxSize = baseSize * 0.1;
   const folderBoxSize = baseSize * 0.25;
-  const priorityCardW = baseSize * 0.2;
+  const priorityCardW = adjustSizeToResolveZoomInIssue(baseSize * 0.19);
 
   const [showCalendar, setShowCalendar] = useState(false);
-  const [isLoading, setIsLoading] = useState(false); // 👈 Added loading state
+  const [isLoading, setIsLoading] = useState(false);
 
   const {
     control,
@@ -165,20 +138,25 @@ export default function CreateProjectScreen() {
     defaultValues: {
       projectHeader: "",
       projectDesc: "",
-      priority: "HIGH",
+      priority: "LOW",
       projectDeadline: new Date(new Date().getTime() + 60 * 60 * 1000),
     },
   });
 
   const onHandleSubmit = async (data: CreateProjectForm) => {
-    setIsLoading(true); // 👈 Set loading to true
+    setIsLoading(true);
     try {
-      // ⚠️ FIX: .unwrap() so a rejected thunk actually throws here — before,
-      // a failed createProject would still fall through to navigation.goBack().
+      // 1. Wait for the project creation thunk to finish successfully
       await dispatch(createProject(data)).unwrap();
+
+      // 2. Since it succeeded, update your local Redux user stats
+      dispatch(
+        updateUserStats({
+          projectsCount: 1,
+        }),
+      );
       navigation.goBack();
     } catch (err: any) {
-      // Backend/slice error -> show shared error modal, stay on this screen
       setErrorModal((prev) => ({
         ...prev,
         isDisplay: true,
@@ -194,36 +172,24 @@ export default function CreateProjectScreen() {
         },
       }));
     } finally {
-      setIsLoading(false); // 👈 Reset loading to false
+      setIsLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
-    >
-      <Box flex={1} justifyContent={"center"} alignItems={"center"} px={"3%"}>
-        <Box
-          width={"100%"}
-          height={"100%"}
-          pt={adjustSizeToResolveZoomInIssue(getInsetTop() * 2.5)}
-          onLayout={onLayout}
-        >
+    <Box flex={1} bg="coolGray.50" onLayout={onLayout}>
+      {baseSize > 0 && (
+        <>
           <Box
-            position={"absolute"}
-            left={2}
+            position="absolute"
+            left={5}
             top={adjustSizeToResolveZoomInIssue(getInsetTop() * 1.2)}
             zIndex={2}
           >
             <Pressable
               onPress={onBack}
-              w={adjustSizeToResolveZoomInIssue(
-                containerDimensions.baseSize * 0.12,
-              )}
-              h={adjustSizeToResolveZoomInIssue(
-                containerDimensions.baseSize * 0.12,
-              )}
+              w={adjustSizeToResolveZoomInIssue(baseSize * 0.12)}
+              h={adjustSizeToResolveZoomInIssue(baseSize * 0.12)}
               rounded="full"
               bg="coolGray.100"
               alignItems="center"
@@ -231,9 +197,7 @@ export default function CreateProjectScreen() {
               shadow={1}
               _pressed={{
                 bg: "coolGray.200",
-                style: {
-                  transform: [{ scale: 0.9 }],
-                },
+                style: { transform: [{ scale: 0.9 }] },
               }}
             >
               <Icon
@@ -245,11 +209,18 @@ export default function CreateProjectScreen() {
             </Pressable>
           </Box>
 
-          {containerDimensions.width > 0 && (
-            <ScrollView
+          <Box
+            flex={1}
+            pt={adjustSizeToResolveZoomInIssue(getInsetTop() * 2.5)}
+            px="3%"
+          >
+            <KeyboardAwareScrollView
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              bottomOffset={20}
               contentContainerStyle={{
-                paddingBottom: containerDimensions.height * 0.04,
+                flexGrow: 1,
+                paddingBottom: containerDimensions.height * 0.05,
               }}
             >
               <Box px="4%" width={"100%"} pb={"4%"}>
@@ -339,6 +310,7 @@ export default function CreateProjectScreen() {
                         borderRadius="xl"
                         px={3}
                         py={2}
+                        bg="coolGray.50"
                       >
                         <TextInput
                           style={{
@@ -397,6 +369,7 @@ export default function CreateProjectScreen() {
                         px={3}
                         pt={2}
                         pb={1}
+                        bg="coolGray.50"
                       >
                         <TextInput
                           style={{
@@ -593,7 +566,7 @@ export default function CreateProjectScreen() {
               <Box px="4%">
                 <Pressable
                   onPress={handleSubmit((data) => onHandleSubmit?.(data))}
-                  disabled={isLoading} // 👈 Disable button while loading
+                  disabled={isLoading}
                   bg="#5B3FFF"
                   borderRadius="xl"
                   py={2}
@@ -601,7 +574,7 @@ export default function CreateProjectScreen() {
                   justifyContent="center"
                   _pressed={{ opacity: 0.88 }}
                 >
-                  {isLoading ? ( // 👈 Conditional render for Spinner
+                  {isLoading ? (
                     <Spinner
                       color="white"
                       size={adjustSizeToResolveZoomInIssue(fs.heroTitle)}
@@ -626,10 +599,10 @@ export default function CreateProjectScreen() {
                   )}
                 </Pressable>
               </Box>
-            </ScrollView>
-          )}
-        </Box>
-      </Box>
-    </KeyboardAvoidingView>
+            </KeyboardAwareScrollView>
+          </Box>
+        </>
+      )}
+    </Box>
   );
 }

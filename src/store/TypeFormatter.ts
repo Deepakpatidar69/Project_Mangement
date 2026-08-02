@@ -91,10 +91,19 @@ export const formatCommentsResponse = (commentData: any) => {
 };
 
 export const formatSingleProject = (projectData: any): ProjectProps => {
+
+  console.log(`Single Project Data is :: ${projectData.admin.email}`)
+  console.log(`Single Project Data is :: ${projectData.admin.profileImgUrl}`);
+
   return {
     projectId: projectData.projectId,
     adminId: projectData.adminId,
-    admin: projectData.admin,
+    admin: {
+      email: projectData.admin.email,
+      fullName: projectData.admin.fullName,
+      profileImageUrl: projectData.admin.profileImgUrl,
+      userId: projectData.admin.userId,
+    },
     projectHeader: projectData.projectHeader,
     projectDesc: projectData.projectDesc,
     priority: projectData.priority,
@@ -135,6 +144,9 @@ export const formatSingleTask = (taskData: any): TaskProps => {
 };
 
 export const formatSingleUser = (userData: any): AuthProps => {
+
+  console.log(`User Data is :: ${JSON.stringify(userData)}`)
+
   return {
     userId: userData.userId,
 
@@ -153,6 +165,7 @@ export const formatSingleUser = (userData: any): AuthProps => {
     googleId: userData.googleId ?? null,
     githubId: userData.githubId ?? null,
 
+    isVerifiedByPassword : userData.isVerifiedByPassword ?? false,
     isEmailVerified: userData.isEmailVerified,
     emailVerifiedAt: userData.emailVerifiedAt
       ? new Date(userData.emailVerifiedAt).toISOString()
@@ -237,12 +250,12 @@ export const formatSingleUser = (userData: any): AuthProps => {
 };
 
 export const formatSingleMember = (memberData: any): MemberProps => {
+
   return {
     memberId: memberData.memberId,
     projectId: memberData.projectId,
-    memberName: memberData.memberName,
-    memberEmail: memberData.memberEmail,
-    profileImgUrl: memberData.profileImgUrl,
+    memberName: memberData.assignedMember.fullName,
+    memberEmail: memberData.assignedMember.email,
     assignedMemberId: memberData.assignedMemberId,
     role: memberData.role,
     joinedAt: memberData.joinedAt,
@@ -258,18 +271,19 @@ export const formatSingleMember = (memberData: any): MemberProps => {
       userId: memberData.assignedMember.userId,
       fullName: memberData.assignedMember.fullName,
       email: memberData.assignedMember.email,
-      profileImgUrl: memberData.assignedMember.profileImgUrl,
+      profileImageUrl: memberData.assignedMember.profileImgUrl,
     },
     assignedBy: {
       userId: memberData.assignedMember.userId,
       fullName: memberData.assignedMember.fullName,
       email: memberData.assignedMember.email,
-      profileImgUrl: memberData.assignedMember.profileImgUrl,
+      profileImageUrl: memberData.assignedMember.profileImgUrl,
     },
   };
 };
 
 export const formatSingleMessage = (messageData: any): MessageProps => {
+
   return {
     messageId: messageData.messageId,
     message: messageData.message,
@@ -290,7 +304,7 @@ export const formatSingleMessage = (messageData: any): MessageProps => {
       userId: messageData?.messageReceiver?.userId,
       email: messageData?.messageReceiver?.email,
       fullName: messageData?.messageReceiver?.fullName,
-      profileImgUrl: messageData?.messageReceiver?.profileImgUrl,
+      profileImageUrl: messageData?.messageReceiver?.profileImgUrl,
     },
     project: {
       projectId: messageData?.project?.projectId,
@@ -313,7 +327,12 @@ export const formatSingleDashBoardProjects = (
   return {
     projectId: projectData.projectId,
     adminId: projectData.adminId,
-    admin: projectData.admin,
+    admin: {
+      email: projectData.admin.email,
+      fullName: projectData.admin.fullName,
+      profileImageUrl: projectData.admin.profileImgUrl,
+      userId: projectData.admin.userId,
+    },
     projectHeader: projectData.projectHeader,
     projectDesc: projectData.projectDesc,
     priority: projectData.priority,

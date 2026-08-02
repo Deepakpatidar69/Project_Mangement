@@ -119,7 +119,12 @@ const memberSlice = createSlice({
   name: "member",
   initialState,
   reducers: {
-    resetMembers: () => initialState,
+    resetMembers: (state) => {
+      state.error = initialState.error;
+      state.loading = initialState.loading;
+      state.members = initialState.members;
+      state.success = initialState.success;
+    },
 
     clearMemberStatus: (state) => {
       state.error = null;
@@ -165,6 +170,7 @@ const memberSlice = createSlice({
         state.members.push(formatSingleMember(action.payload.member));
       })
       .addCase(addMember.rejected, (state, action: any) => {
+
         state.loading = false;
         state.error = action.payload;
         state.success = false;

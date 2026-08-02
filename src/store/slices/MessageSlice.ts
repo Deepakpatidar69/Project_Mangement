@@ -218,6 +218,16 @@ const messageSlice = createSlice({
       state.error = initialState.error;
       state.taskError = initialState.taskError;
     },
+
+    clearTaskMessages : (state) => {
+      state.taskMessages = initialState.taskMessages;
+      state.totalTaskCount = initialState.totalTaskCount;
+    },
+
+    clearProjectMessages : (state) => {
+      state.projectMessages = initialState.projectMessages;
+      state.totalMessageCount = initialState.totalMessageCount;
+    },
   },
   extraReducers: (builder) => {
     /* ================= SEND MESSAGE ================= */
@@ -429,5 +439,5 @@ const messageSlice = createSlice({
   },
 });
 
-export const { resetMessageState, clearMessageError } = messageSlice.actions;
+export const { resetMessageState, clearMessageError, clearProjectMessages, clearTaskMessages } = messageSlice.actions;
 export default messageSlice.reducer;

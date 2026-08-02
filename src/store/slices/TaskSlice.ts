@@ -1,9 +1,11 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { apiClient } from "../../api/client";
 import { API_ENDPOINTS, fetchStatusType } from "../../api/endpoint";
 import { TaskProps } from "./types";
 import { PriorityLevel } from "../../store/slices/types";
 import { formatSingleTask, formatTaskResponse } from "../TypeFormatter";
+import { DEFAULT_RECENT_TASK_LIMIT } from "../../utils/Constent";
+import { TaskEntityType } from "../../utils/GlobalStateUpdateUtils";
 
 interface TaskStateProps {
   privateTasks: { tasks: TaskProps[]; totalTasks: number };
@@ -392,9 +394,52 @@ const taskSlice = createSlice({
   initialState: initialTaskState,
   reducers: {
     resetTaskState: (state) => {
-      state.loading = initialTaskState.loading;
-      state.success = initialTaskState.success;
+      state.dashboard = initialTaskState.dashboard;
       state.error = initialTaskState.error;
+      state.loading = initialTaskState.loading;
+      state.privateTasks = initialTaskState.privateTasks;
+      state.projectTasks = initialTaskState.projectTasks;
+      state.totalProjectTaskCount = initialTaskState.totalProjectTaskCount;
+      state.singleTask = initialTaskState.singleTask;
+      state.success = initialTaskState.success;
+    },
+
+    updateTaskStats: (
+      state,
+      action: PayloadAction<{ entity: TaskEntityType; change: number }>,
+    ) => {
+      const { entity, change } = action.payload;
+
+      if (entity === "COMMENT") {
+        state.singleTask!.commentCount =
+          (state.singleTask!.commentCount || 0) + change;
+
+        state.dashboard.latestTasks = state.dashboard.latestTasks.map(
+          (item) => {
+            if (item.taskId === state.singleTask?.taskId) {
+              return { ...item, commentCount: (item.commentCount += change) };
+            } else {
+              return item;
+            }
+          },
+        );
+      } else if (entity === "MESSAGE") {
+        state.singleTask!.messageCount =
+          (state.singleTask!.messageCount || 0) + change;
+
+        state.dashboard.latestTasks = state.dashboard.latestTasks.map(
+          (item) => {
+            if (item.taskId === state.singleTask?.taskId) {
+              return {
+                ...item,
+                messageCount: (item.messageCount += change),
+              };
+            } else {
+              return item;
+            }
+          },
+        );
+      }
     },
 
     clearTaskError: (state) => {
@@ -497,19 +542,53 @@ const taskSlice = createSlice({
         state.loading = false;
         state.success = true;
 
-        const deleted = formatSingleTask(action.payload.task);
+        const deleted = formatSingleTask(action.payload.deletedTasks);
         if (!deleted) return;
 
+        // 1. Check if the deleted task is in latestTasks
+        const isLatest = state.dashboard.latestTasks.some(
+          (t) => t.taskId === deleted.taskId,
+        );
+
+        // 2. Normal remove from privateTasks list
         const remove = (list: any[]) =>
           list.filter((i) => i.taskId !== deleted.taskId);
 
         state.privateTasks.tasks = remove(state.privateTasks.tasks);
-        state.privateTasks.totalTasks -= 1;
+        state.privateTasks.totalTasks = Math.max(
+          0,
+          state.privateTasks.totalTasks - 1,
+        );
+
+        // Update dashboard total count
         state.dashboard.totalTasks = Math.max(
           0,
           state.dashboard.totalTasks - 1,
         );
-        state.dashboard.latestTasks = remove(state.dashboard.latestTasks);
+
+        // 3. Update Dashboard latestTasks array
+        if (isLatest) {
+          // Pehle usko hatao
+          state.dashboard.latestTasks = state.dashboard.latestTasks.filter(
+            (t) => t.taskId !== deleted.taskId,
+          );
+
+          // Agar task ki total count aapki limit se zyada (ya barabar) hai, tabhi naya fetch krke add kro
+          // NOTE: Apni limit variable yahan replace krein (jaise DEFAULT_RECENT_TASK_LIMIT)
+          if (state.dashboard.totalTasks >= DEFAULT_RECENT_TASK_LIMIT) {
+            // Ek aisa task dhundo jo already latestTasks me na ho
+            const newLatest = state.privateTasks.tasks.find(
+              (pt) =>
+                !state.dashboard.latestTasks.some(
+                  (lt) => lt.taskId === pt.taskId,
+                ),
+            );
+
+            if (newLatest) {
+              state.dashboard.latestTasks.push(newLatest);
+            }
+          }
+        }
       })
       .addCase(deletePrivateTask.rejected, (state, action: any) => {
         state.loading = false;
@@ -592,7 +671,7 @@ const taskSlice = createSlice({
             ...formatedTasks,
           ];
         } else {
-          state.projectTasks.tasks = tasks;
+          state.projectTasks.tasks = formatedTasks;
         }
 
         state.privateTasks.totalTasks = totalCount; // 🔥 IMPORTANT
@@ -792,6 +871,12 @@ const taskSlice = createSlice({
             : task,
         );
 
+        state.dashboard.latestTasks = state.dashboard.latestTasks.map((task) =>
+          task.taskId === updatedTask.taskId
+            ? { ...task, ...updatedTask }
+            : task,
+        );
+
         if (state.singleTask?.taskId === updatedTask.taskId) {
           state.singleTask = { ...state.singleTask, ...updatedTask };
         }
@@ -817,6 +902,12 @@ const taskSlice = createSlice({
         if (!updatedTask) return;
 
         state.privateTasks.tasks = state.privateTasks.tasks.map((task) =>
+          task.taskId === updatedTask.taskId
+            ? { ...task, ...updatedTask }
+            : task,
+        );
+
+        state.dashboard.latestTasks = state.dashboard.latestTasks.map((task) =>
           task.taskId === updatedTask.taskId
             ? { ...task, ...updatedTask }
             : task,
@@ -852,6 +943,12 @@ const taskSlice = createSlice({
             : task,
         );
 
+        state.dashboard.latestTasks = state.dashboard.latestTasks.map((task) =>
+          task.taskId === updatedTask.taskId
+            ? { ...task, ...updatedTask }
+            : task,
+        );
+
         if (state.singleTask?.taskId === updatedTask.taskId) {
           state.singleTask = { ...state.singleTask, ...updatedTask };
         }
@@ -864,5 +961,6 @@ const taskSlice = createSlice({
   },
 });
 
-export const { resetTaskState, clearTaskError } = taskSlice.actions;
+export const { resetTaskState, clearTaskError, updateTaskStats } =
+  taskSlice.actions;
 export default taskSlice.reducer;

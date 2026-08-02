@@ -53,6 +53,7 @@ export interface AuthProps {
   // Authentication
   authProvider: AuthProvider;
 
+  isVerifiedByPassword : boolean;
   googleId?: string | null;
   githubId?: string | null;
 
@@ -172,7 +173,6 @@ export interface MemberProps {
   assignedMemberId: string;
   role: MemberRole;
   joinedAt: string;
-  profileImgUrl: string;
   project: projectPreviewSelectionProps;
   assignedMember: userPreviewSelectionProps;
   assignedBy: userPreviewSelectionProps;
@@ -182,7 +182,7 @@ export type userPreviewSelectionProps = {
   userId: string;
   fullName: string;
   email: string;
-  profileImgUrl: string;
+  profileImageUrl: string;
 };
 
 export type projectPreviewSelectionProps = {

@@ -26,7 +26,11 @@ import {
   isDisplayErrorMessageAtom,
 } from "../../utils/Constent";
 import { useAtom } from "jotai";
-import { onTapMemberRoleUpdate } from "../../modals/model.utils";
+import {
+  handleRemoveMember,
+  onTapMemberRoleUpdate,
+} from "../../modals/model.utils";
+import { onUpdateGlobalStateForProject } from "../../utils/GlobalStateUpdateUtils";
 
 // --- MAIN COMPONENT ---
 interface ProjectTeamMembersProps {
@@ -35,6 +39,7 @@ interface ProjectTeamMembersProps {
   isAdmin: boolean;
   baseSize: number;
   fs: any;
+  isProjectCompleted: boolean;
   onClickViewAll: () => void;
 }
 
@@ -42,6 +47,7 @@ const ProjectTeamMembers: React.FC<ProjectTeamMembersProps> = ({
   projectId,
   userId,
   isAdmin,
+  isProjectCompleted = false,
   baseSize,
   fs,
   onClickViewAll,
@@ -61,10 +67,6 @@ const ProjectTeamMembers: React.FC<ProjectTeamMembersProps> = ({
   const loadMembers = useCallback(() => {
     dispatch(fetchMembers({ projectId, limit: 4 }));
   }, [dispatch, projectId]);
-
-  const handleRemoveMember = async (member: MemberProps) => {
-    dispatch(removeMember({ projectId: projectId, memberId: member.memberId }));
-  };
 
   const handleUpdateRole = async (member: MemberProps) => {
     await onTapMemberRoleUpdate({
@@ -115,7 +117,7 @@ const ProjectTeamMembers: React.FC<ProjectTeamMembersProps> = ({
   }, [setErrorModal]);
 
   return (
-    <Box width="100%">
+    <Box width="100%" flex={1}>
       <HStack
         justifyContent="space-between"
         alignItems="center"
@@ -136,7 +138,7 @@ const ProjectTeamMembers: React.FC<ProjectTeamMembersProps> = ({
         <Box
           bg="white"
           rounded="2xl"
-          p={adjustSizeToResolveZoomInIssue(baseSize * 0.05)}
+          p={adjustSizeToResolveZoomInIssue(baseSize * 0.01)}
           alignItems="center"
           shadow={1}
         >
@@ -159,7 +161,10 @@ const ProjectTeamMembers: React.FC<ProjectTeamMembersProps> = ({
           data={members}
           keyExtractor={(item) => item.memberId}
           scrollEnabled={false}
-          contentContainerStyle={{ paddingBottom: "5%", rowGap: "8%" }}
+          contentContainerStyle={{
+            paddingBottom: adjustSizeToResolveZoomInIssue(baseSize * 0.05),
+            rowGap: adjustSizeToResolveZoomInIssue(baseSize * 0.03),
+          }}
           renderItem={({ item, index }) => {
             const isCurrentUser = item.assignedMemberId === userId;
 
@@ -175,7 +180,7 @@ const ProjectTeamMembers: React.FC<ProjectTeamMembersProps> = ({
                 setGlobalMenu={setGlobalMenu}
                 onUpdateRole={handleUpdateRole}
                 onRemoveUser={handleRemoveMember}
-                isProjectCompleted={singleProject?.status || false}
+                isProjectCompleted={isProjectCompleted}
               />
             );
           }}
