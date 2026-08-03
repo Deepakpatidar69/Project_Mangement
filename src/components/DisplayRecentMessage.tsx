@@ -36,6 +36,8 @@ import {
   onUpdateGlobalStateForProject,
   onUpdateGlobalStateForTask,
 } from "../utils/GlobalStateUpdateUtils";
+import AppLoader from "./CustomLoader";
+
 
 export interface RecentMessagesProps {
   type: "PROJECT" | "TASK" | "PROJECT_TASK";
@@ -66,8 +68,13 @@ const RecentMessages = ({
   const [recentMessages, setRecentMessages] = useState<MessageProps[]>([]);
   const [messageCount, setMessageCount] = useState<number>(0);
 
-  // ✅ Added local loading state for sending a message
+  // ✅ Local loading state for sending a message
   const [isSending, setIsSending] = useState(false);
+
+  // ✅ Local loading state for deleting a message (tracks which message is being deleted)
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(
+    null,
+  );
 
   const inputRef = useRef<TextInput>(null);
 
@@ -77,7 +84,7 @@ const RecentMessages = ({
 
   const onClickViewAll = () => {
     navigation.navigate("MessageListScreen", {
-      type: type as "PROJECT" | "TASK",
+      type: type,
       projectId: projectId,
       taskId: taskId,
       loginUserRole: loginUserRole,
@@ -185,7 +192,7 @@ const RecentMessages = ({
       setIsSending(true); // ✅ Trigger sending spinner
       await onSendMessage({
         message: messageText,
-        type: type as "PROJECT" | "TASK",
+        type: type === "PROJECT_TASK" ? "TASK" : type,
         taskId: taskId,
         projectId: projectId,
       });
@@ -202,6 +209,7 @@ const RecentMessages = ({
   const onDeleteMessage = useCallback(
     async (messageId: string) => {
       try {
+        setDeletingMessageId(messageId); // ✅ Show AppLoader while deleting
         await dispatch(
           deleteMessage({ messageId, isTask: type === "TASK" }),
         ).unwrap();
@@ -219,6 +227,8 @@ const RecentMessages = ({
         }
       } catch (error) {
         triggerErrorModal("Action Not Allowed", error);
+      } finally {
+        setDeletingMessageId(null); // ✅ Hide AppLoader regardless of outcome
       }
     },
     [dispatch, type, triggerErrorModal],
@@ -251,14 +261,7 @@ const RecentMessages = ({
           setGlobalMenu={setGlobalMenu}
           isAllowToDelete={isAllowToDelete}
           isCompleted={isCompleted}
-          messageType={
-            type
-            // type === "PROJECT"
-            //   ? "PROJECT"
-            //   : type === "PROJECT_TASK"
-            //     ? "PROJECT_TASK"
-            //     : "TASK"
-          }
+          messageType={type}
         />
       );
     },
@@ -275,18 +278,16 @@ const RecentMessages = ({
     ],
   );
 
-  // ✅ Replaced text with visual spinner component for Empty List loading
+  // ✅ Visual spinner component for Empty List loading
   const renderEmptyList = () => (
     <Center width="100%" py={adjustSizeToResolveZoomInIssue(baseSize * 0.05)}>
       {msgLoading ? (
-        <HStack space={3} alignItems="center">
-          <Spinner color="indigo.500" />
-          <Text
-            color="coolGray.700"
-            fontSize={adjustSizeToResolveZoomInIssue(fs.subTitle)}
-          >
-            Loading messages...
-          </Text>
+        <HStack alignItems="center">
+          <AppLoader
+            isLoading={true}
+            fullScreen={false}
+            message="Loading Messages.."
+          />
         </HStack>
       ) : (
         <Text
@@ -301,6 +302,7 @@ const RecentMessages = ({
 
   return (
     <Box flex={1} width={"100%"}>
+
       <VStack
         flex={1}
         width="100%"
@@ -350,6 +352,7 @@ const RecentMessages = ({
         </HStack>
 
         {/* --- FLATLIST --- */}
+
         <Box
           rounded="2xl"
           m={1}
@@ -358,19 +361,37 @@ const RecentMessages = ({
           borderRadius={"xl"}
           shadow={1}
         >
-          <FlatList
-            data={slicedMessages}
-            keyExtractor={(item) => item.messageId}
-            renderItem={renderMessageItem}
-            ListEmptyComponent={renderEmptyList}
-            contentContainerStyle={{
-              rowGap: adjustSizeToResolveZoomInIssue(baseSize * 0.02),
-              marginHorizontal: adjustSizeToResolveZoomInIssue(baseSize * 0.01),
-              paddingVertical: adjustSizeToResolveZoomInIssue(baseSize * 0.05),
-            }}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
-          />
+          {deletingMessageId ? (
+            // ✅ Show loader in place of the list while deleting, hide messages until done
+            <Center
+              width="100%"
+              py={adjustSizeToResolveZoomInIssue(baseSize * 0.05)}
+            >
+              <AppLoader
+                isLoading={true}
+                fullScreen={false}
+                message="Delete Messages.."
+              />
+            </Center>
+          ) : (
+            <FlatList
+              data={slicedMessages}
+              keyExtractor={(item) => item.messageId}
+              renderItem={renderMessageItem}
+              ListEmptyComponent={renderEmptyList}
+              contentContainerStyle={{
+                rowGap: adjustSizeToResolveZoomInIssue(baseSize * 0.02),
+                marginHorizontal: adjustSizeToResolveZoomInIssue(
+                  baseSize * 0.01,
+                ),
+                paddingVertical: adjustSizeToResolveZoomInIssue(
+                  baseSize * 0.05,
+                ),
+              }}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={false}
+            />
+          )}
         </Box>
 
         {/* --- SEND MESSAGE INPUT BOX --- */}
@@ -425,7 +446,7 @@ const RecentMessages = ({
             _disabled={{ opacity: 0.6 }}
             _pressed={{ bg: "indigo.700" }}
           >
-            {/* ✅ Spinner now binds to isSending instead of global msgLoading */}
+            {/* ✅ Spinner bound to isSending instead of global msgLoading */}
             {isSending ? (
               <Spinner color="white" size="sm" />
             ) : (

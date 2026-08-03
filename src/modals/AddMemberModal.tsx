@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Platform, TextInput } from "react-native";
-import {
-  Box,
-  Text,
-  HStack,
-  VStack,
-  Pressable,
-  Spinner,
-  Select,
-} from "native-base";
+import { Platform, TextInput, Keyboard, ActivityIndicator } from "react-native";
+import { Box, Text, HStack, VStack, Pressable, Select } from "native-base";
 // @ts-ignore
 import { Feather } from "react-native-vector-icons";
 import { useDispatch } from "react-redux";
@@ -49,7 +41,7 @@ export interface AddMemberModalProps {
     email: string;
     projectId: string;
     role: MemberRole;
-  }) => void;
+  }) => void | Promise<void>; // Updated to support async Promises for loading state
   /** Card background – default white */
   backgroundColor?: string;
   /** Overlay scrim color – default dark semi-transparent */
@@ -154,11 +146,15 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
       setError("Please search and select a user first.");
       return;
     }
+    if (loading) return;
+
+    Keyboard.dismiss(); // Close keyboard on submit
+
     try {
       setLoading(true);
       setError("");
 
-      onSuccess!({ email: userId, role: role, projectId: projectId! });
+      await onSuccess!({ email: userId, role: role, projectId: projectId! });
       // Close the modal ONLY on success
     } catch (err: any) {
       // Instead of closing the modal, set the local error state
@@ -239,6 +235,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                   bg="coolGray.100"
                   borderRadius="full"
                   p={2}
+                  disabled={loading}
                 >
                   <Feather name="x" size={iconSize} color="#374151" />
                 </Pressable>
@@ -279,6 +276,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                       setError("");
                       setIsUserSelected(false);
                     }}
+                    editable={!loading}
                     style={{
                       flex: 1,
                       fontSize: bodySize,
@@ -286,7 +284,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                       paddingVertical: Platform.OS === "ios" ? 4 : 0,
                     }}
                   />
-                  {searchLoading && <Spinner size="sm" color="coolGray.400" />}
+                  {searchLoading && (
+                    <ActivityIndicator size="small" color="#9CA3AF" />
+                  )}
                 </HStack>
 
                 {/* ✨ IMPROVEMENT: Error Message placed directly under the search field */}
@@ -419,6 +419,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                   bg="white"
                   py={3}
                   px={3}
+                  isDisabled={loading}
                   _selectedItem={{
                     bg: "indigo.50",
                     _text: {
@@ -499,11 +500,11 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                   {({ isPressed }) => (
                     <Box
                       bg={
-                        loading || isPressed
-                          ? "primary.700"
-                          : !userId.trim()
-                            ? "primary.300" // visually disable if no input
-                            : "primary.500"
+                        loading || !userId.trim()
+                          ? "indigo.300" // Visually disable state
+                          : isPressed
+                            ? "indigo.700" // Pressed state
+                            : "indigo.500" // Default state
                       }
                       borderRadius="xl"
                       py={"6%"}
@@ -512,7 +513,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                     >
                       <HStack space={2} alignItems="center">
                         {loading ? (
-                          <Spinner size="sm" color="white" />
+                          <ActivityIndicator size={adjustSizeToResolveZoomInIssue(buttonSize * 1.2)} color="white" />
                         ) : (
                           <Feather
                             name="user-plus"

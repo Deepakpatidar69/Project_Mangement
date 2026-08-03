@@ -32,7 +32,6 @@ export const addMember = createAsyncThunk(
     thunkAPI,
   ) => {
     try {
-      console.log(`Member Id is :: ${data.memberEmail}`);
 
       const res = await apiClient.post(API_ENDPOINTS.ADD_MEMBER, data);
 

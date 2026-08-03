@@ -92,9 +92,6 @@ export const formatCommentsResponse = (commentData: any) => {
 
 export const formatSingleProject = (projectData: any): ProjectProps => {
 
-  console.log(`Single Project Data is :: ${projectData.admin.email}`)
-  console.log(`Single Project Data is :: ${projectData.admin.profileImgUrl}`);
-
   return {
     projectId: projectData.projectId,
     adminId: projectData.adminId,
@@ -145,7 +142,6 @@ export const formatSingleTask = (taskData: any): TaskProps => {
 
 export const formatSingleUser = (userData: any): AuthProps => {
 
-  console.log(`User Data is :: ${JSON.stringify(userData)}`)
 
   return {
     userId: userData.userId,

@@ -281,7 +281,6 @@ export default function ProjectTaskList() {
         task={item}
         width={cardWidth}
         onPress={() => onPressTask(item)}
-        onToggleCheck={() => console.log(`Press on toggle Check`)}
       />
     ),
     [cardWidth],

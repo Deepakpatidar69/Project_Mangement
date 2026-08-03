@@ -21,7 +21,6 @@ export const onUpdateGlobalStateForProject = async ({
     // If creating, add 1. If deleting, subtract 1.
     const countChange = action === 'CREATE' ? 1 : -1;
 
-    console.log(`Updating global state for ${entity}: ${countChange}`);
 
     switch (entity) {
       case 'MESSAGE':
@@ -67,7 +66,6 @@ export const onUpdateGlobalStateForTask = async ({
 }: UpdateTaskStatsProps) => {
   try {
     const countChange = action === 'CREATE' ? 1 : -1;
-    console.log(`Updating global state for task ${entity}: ${countChange}`);
 
     // Passes either 'COMMENT' or 'MESSAGE' directly to the Redux slice
     store.dispatch(updateTaskStats({ entity, change: countChange }));

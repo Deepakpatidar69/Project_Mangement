@@ -49,7 +49,7 @@ export default function AppLoader({
   ========================================= */
   if (!isLoading) return null;
 
-  const lottieSize = adjustSizeToResolveZoomInIssue(baseSizeScreen * 0.45);
+  const lottieSize = adjustSizeToResolveZoomInIssue(baseSizeScreen * 0.3);
 
   return (
     <Center
@@ -67,14 +67,18 @@ export default function AppLoader({
           autoPlay
           loop
           duration={3000}
+          resizeMode="contain"
           style={{
             width: lottieSize,
             height: lottieSize,
-          }}
+            justifyContent: "center",
+            alignItems: "center",
+            transform: [{ scale: 1.5 }],
+           }}
         />
         <Text
           fontSize={adjustSizeToResolveZoomInIssue(baseSizeScreen * 0.05)}
-          mt={-adjustSizeToResolveZoomInIssue(baseSizeScreen * 0.1)}
+          mt={-adjustSizeToResolveZoomInIssue(baseSizeScreen * 0.05)}
           fontWeight="semibold"
           color="coolGray.700"
         >

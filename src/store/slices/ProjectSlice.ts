@@ -78,9 +78,7 @@ export const fetchCreatedProject = createAsyncThunk(
     { rejectWithValue },
   ) => {
     try {
-      console.log(
-        `fetchType :: ${fetchType},  limit :: ${limit} , skip :: ${skip}`,
-      );
+   
 
       const res = await apiClient.get(
         API_ENDPOINTS.FETCH_CREATED_PROJECT(
@@ -90,9 +88,6 @@ export const fetchCreatedProject = createAsyncThunk(
         ),
       );
 
-      console.log(
-        `Created Projects is in CreateAsyncThunk :: ${JSON.stringify(res)}`,
-      );
 
       return res.data;
     } catch (err: any) {
@@ -422,9 +417,7 @@ const projectSlice = createSlice({
         state.createdProjects.totalCount =
           action.payload.createdProjects.totalProjects || 0;
 
-        console.log(
-          `created projects is :: ${JSON.stringify(action.payload.createdProjects)}`,
-        );
+      
       })
       .addCase(fetchCreatedProject.rejected, (state, action: any) => {
         state.loading = false;
@@ -688,10 +681,7 @@ const projectSlice = createSlice({
         state.dashboard.projectError = null;
       })
       .addCase(fetchDashboardProjects.fulfilled, (state, action: any) => {
-        console.log(
-          `Dashboard data is : ${JSON.stringify(action.payload.latestProjects)}`,
-        );
-
+   
         state.dashboard.projectLoading = false;
         state.dashboard.totalProjects = action.payload.totalProjects;
         state.dashboard.latestProjects = formatDashBoardProjectResponse(

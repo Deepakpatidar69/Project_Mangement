@@ -61,9 +61,7 @@ export const sendMessage = createAsyncThunk(
     thunkAPI,
   ) => {
     try {
-      console.log(
-        `I am call in the message Slice --- ${JSON.stringify(payload)}`,
-      );
+   
 
       const res = await apiClient.post(API_ENDPOINTS.SEND_MESSAGE, payload);
 

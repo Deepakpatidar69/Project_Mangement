@@ -177,8 +177,6 @@ export const googleAuthUser = createAsyncThunk(
   ) => {
     try {
 
-      console.log(`i am call in this ::: for googleSignIn`)
-
       const res = await apiClient.post(API_ENDPOINTS.GOOGLE_LOGIN, data);
 
       const token = res.data.token;
@@ -626,11 +624,7 @@ const authSlice = createSlice({
         try {
           state.user = formatSingleUser(action.payload.user);
         } catch (e) {
-          console.log(
-            "formatSingleUser failed on Google payload:",
-            action.payload.user,
-            e,
-          );
+       
           state.user = action.payload.user; // fall back to raw user rather than crashing
         }
 
@@ -657,11 +651,7 @@ const authSlice = createSlice({
         try {
           state.user = formatSingleUser(action.payload.user);
         } catch (e) {
-          console.log(
-            "formatSingleUser failed on Google payload:",
-            action.payload.user,
-            e,
-          );
+         
           state.user = action.payload.user; // fall back to raw user rather than crashing
         }
 

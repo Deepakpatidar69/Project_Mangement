@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import { NativeBaseProvider } from "native-base";
+import React, { useEffect } from "react";
+import { NativeBaseProvider, extendTheme } from "native-base";
 import { Provider } from "react-redux";
 import { store } from "./src/store";
 import ApplicationNavigation from "./src/appNavigator/Navigation";
@@ -12,46 +12,92 @@ import {
 } from "./src/authentation/googleSignIn.utils";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { API_BASE_URL } from "@env";
+import { Text, TextInput } from "react-native";
+
+/**
+ * ✅ REAL FIX for device font-scaling
+ */
+const disableFontScalingGlobally = () => {
+  // @ts-ignore
+  if (Text.render && !(Text as any).__fontScalePatched) {
+    // @ts-ignore
+    const oldTextRender = Text.render;
+    // @ts-ignore
+    Text.render = function (...args: any[]) {
+      const origin = oldTextRender.call(this, ...args);
+      return React.cloneElement(origin, {
+        ...origin.props,
+        // MUST come after origin.props to force the override
+        allowFontScaling: false,
+        maxFontSizeMultiplier: 1,
+      });
+    };
+    (Text as any).__fontScalePatched = true;
+  }
+
+  // @ts-ignore
+  if (TextInput.render && !(TextInput as any).__fontScalePatched) {
+    // @ts-ignore
+    const oldInputRender = TextInput.render;
+    // @ts-ignore
+    TextInput.render = function (...args: any[]) {
+      const origin = oldInputRender.call(this, ...args);
+      return React.cloneElement(origin, {
+        ...origin.props,
+        // MUST come after origin.props to force the override for TextInput
+        allowFontScaling: false,
+        maxFontSizeMultiplier: 1,
+      });
+    };
+    (TextInput as any).__fontScalePatched = true;
+  }
+};
+
+disableFontScalingGlobally();
+
+// NativeBase Failsafes
+// ✅ FIX: Moved from `baseStyle` to `defaultProps`.
+// Native props like allowFontScaling only get passed down via defaultProps.
+const customTheme = extendTheme({
+  components: {
+    Text: {
+      defaultProps: {
+        allowFontScaling: false,
+        maxFontSizeMultiplier: 1,
+      },
+    },
+    Heading: {
+      defaultProps: {
+        allowFontScaling: false,
+        maxFontSizeMultiplier: 1,
+      },
+    },
+    Input: {
+      defaultProps: {
+        allowFontScaling: false,
+        maxFontSizeMultiplier: 1,
+      },
+    },
+  },
+});
 
 export default function App() {
-  // 1. Initialize Network Listener
   useNetworkManager();
 
-
   useEffect(() => {
-    // 2. Configure Google Sign-In globally on mount
     configureGoogleSignIn();
 
-    // 3. Set up the Firebase auth listener
-    // Note: Because your Node/Prisma backend handles the real session via loadUser(),
-    // this Firebase listener is strictly for tracking Google's internal state.
     const unsubscribe = subscribeToAuthState((currentUser: any) => {
-      console.log(
-        "Firebase Auth State: ",
-        currentUser
-          ? `Logged in as ${currentUser.email}`
-          : "No Firebase user signed in",
-      );
+  
     });
 
-    // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, []);
-
-
-  console.log(`--------------------------------------------------`);
-  console.log(`--------------------------------------------------`);
-  console.log(`--------------------------------------------------`);
-  console.log(`--------------------------------------------------`);
-  console.log(`Api Base Url is for the App.tsx ::: ${API_BASE_URL}`);
-  console.log(`--------------------------------------------------`);
-  console.log(`--------------------------------------------------`);
-  console.log(`--------------------------------------------------`);
 
   return (
     <Provider store={store}>
       <KeyboardProvider>
-        <NativeBaseProvider>
+        <NativeBaseProvider theme={customTheme}>
           <AppContainer>
             <ApplicationNavigation />
           </AppContainer>

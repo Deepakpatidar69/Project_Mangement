@@ -32,12 +32,8 @@ const ApplicationNavigation = () => {
     (state: RootState) => state.auth,
   );
 
-
-
   useEffect(() => {
-    console.log(
-      `I am call in the navigation.tsx file and dispatching loadUser()`,
-    );
+
 
     dispatch(loadUser());
   }, []);
@@ -53,7 +49,11 @@ const ApplicationNavigation = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
         {isAuthenticated ? (
           <>
             {/* ✅ PRIVATE SCREENS */}

@@ -137,7 +137,7 @@ export default function ProjectDetailScreen({ route }: any) {
 
   useEffect(() => {
     if (loading || taskLoading || containerDimensions.baseSize === 0) {
-      setDisplayAppLoader({ isLoading: true, message: "project loading" });
+      setDisplayAppLoader({ isLoading: true, message: "Loading Project..." });
     } else {
       setDisplayAppLoader({ isLoading: false, message: "" });
     }

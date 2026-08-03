@@ -146,7 +146,6 @@ export const fetchTaskForProject = createAsyncThunk(
           skip,
         ),
       );
-      console.log(`res.data is : ${JSON.stringify(res.data)}`);
 
       return res.data;
     } catch (err: any) {
@@ -172,7 +171,6 @@ export const fetchPrivateTask = createAsyncThunk(
         API_ENDPOINTS.FETCH_PRIVATE_TASK(fetchType || "ALL", limit, skip),
       );
 
-      console.log(`Res is :: ${JSON.stringify(res)}`);
 
       return res.data;
     } catch (err: any) {
@@ -653,17 +651,12 @@ const taskSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchTaskForProject.fulfilled, (state, action: any) => {
-        console.log(
-          ` fetchTaskForProject Dats is :: ${JSON.stringify(action)} `,
-        );
-
+    
         const { tasks, totalCount } = action.payload;
 
         const formatedTasks = formatTaskResponse(tasks);
 
-        console.log(
-          ` fetchTaskForProject Dats is formatedTasks :: ${JSON.stringify(formatedTasks)} `,
-        );
+      
 
         if (action.meta.arg?.skip > 0) {
           state.projectTasks.tasks = [

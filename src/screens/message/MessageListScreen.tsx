@@ -59,6 +59,11 @@ export default function MessageListScreen() {
   const route = useRoute<MessageListRoute>();
   const { type, taskId, projectId, loginUserRole } = route.params;
 
+  // ✅ NEW: "PROJECT_TASK" = a task that lives inside a project.
+  // Treat it the same as "TASK" everywhere task-specific data/actions are needed.
+  const isTaskLike = type === "TASK" || type === "PROJECT_TASK";
+  const isPureProject = type === "PROJECT";
+
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
   const dispatch = useDispatch<AppDispatch>();
@@ -75,7 +80,6 @@ export default function MessageListScreen() {
   const headerTitleSize = adjustSizeToResolveZoomInIssue(baseSize * 0.05);
   const meta = adjustSizeToResolveZoomInIssue(baseSize * 0.035);
 
-  // RecentMessages) rather than a bare `meta` number.
   const fs = {
     meta,
     title: headerTitleSize,
@@ -88,30 +92,29 @@ export default function MessageListScreen() {
   const task = singleTask as TaskProps | null;
   const project = singleProject as ProjectProps | null;
 
-  const typeLabel = type === "TASK" ? "Task Messages" : "Project Messages";
-  const mainHeaderText =
-    type === "TASK" ? task?.taskHeader : project?.projectHeader;
+  // ✅ isTaskLike covers TASK + PROJECT_TASK
+  const typeLabel = isTaskLike ? "Task Messages" : "Project Messages";
+
+  // ✅ For PROJECT_TASK, prefer the task header but fall back to the project header
+  const mainHeaderText = isTaskLike
+    ? (task?.taskHeader ?? project?.projectHeader)
+    : project?.projectHeader;
 
   const { user } = useSelector((state: RootState) => state.auth);
   const currentUserId = user?.userId;
 
-  const isAdmin =
-    type === "TASK"
-      ? task?.userRole === "CREATOR"
-      : project?.userRole === "ADMIN";
-  const isEditor =
-    type === "TASK"
-      ? task?.userRole === "EDITOR"
-      : project?.userRole === "EDITOR";
+  const isAdmin = isTaskLike
+    ? task?.userRole === "CREATOR"
+    : project?.userRole === "ADMIN";
+  const isEditor = isTaskLike
+    ? task?.userRole === "EDITOR"
+    : project?.userRole === "EDITOR";
   const isTaskCreator =
-    type === "TASK" && !!task && task.taskCreator.userId === currentUserId;
+    isTaskLike && !!task && task.taskCreator.userId === currentUserId;
 
   // ✅ Compare status against the actual "completed" enum value instead of
-  // assigning the raw status directly (raw status would be truthy for
-  // "PENDING", "IN_PROGRESS", etc. too, which incorrectly disables the
-  // send bar in all of those states).
-  const isCompleted =
-    type === "TASK" ? singleTask?.status : singleProject?.status;
+  // assigning the raw status directly.
+  const isCompleted = isTaskLike ? singleTask?.status : singleProject?.status;
 
   const {
     loading: msgLoading,
@@ -123,9 +126,9 @@ export default function MessageListScreen() {
     totalTaskCount,
   } = useSelector((state: RootState) => state.message);
 
-  const msgError = type === "TASK" ? taskError : projectError;
-  const messages = type === "TASK" ? taskMessages : projectMessages;
-  const messageCount = type === "TASK" ? totalTaskCount : totalMessageCount;
+  const msgError = isTaskLike ? taskError : projectError;
+  const messages = isTaskLike ? taskMessages : projectMessages;
+  const messageCount = isTaskLike ? totalTaskCount : totalMessageCount;
 
   const [messageText, setMessageText] = useState("");
   const [isFocused, setIsFocused] = useState(false);
@@ -147,7 +150,6 @@ export default function MessageListScreen() {
   const setDisplayAppLoader = useSetAtom(AppLoaderAtom);
 
   useEffect(() => {
-    // Only block the UI globally while we are measuring dimensions.
     if (containerDimensions.baseSize === 0) {
       setDisplayAppLoader({ isLoading: true, message: "Loading Messages" });
     } else {
@@ -155,16 +157,12 @@ export default function MessageListScreen() {
     }
   }, [containerDimensions.baseSize, setDisplayAppLoader]);
 
-  // Failsafe cleanup
   useEffect(() => {
     return () => {
       setDisplayAppLoader({ isLoading: false, message: "" });
     };
   }, [setDisplayAppLoader]);
 
-  // ── Global error modal — covers initial load, load-more, and post-send/
-  // delete refetches, since none of those dispatches are unwrapped and all
-  // surface through `msgError` in the slice ─────────────────────────────────
   useEffect(() => {
     if (!msgError) return;
 
@@ -222,14 +220,25 @@ export default function MessageListScreen() {
     };
   }, []);
 
+  // ✅ For PROJECT_TASK we may need BOTH the task record (for header/roles)
+  // and the project record (for context), so fetch both when available.
   useEffect(() => {
-    if (type === "TASK" && taskId) {
+    if (isTaskLike && taskId) {
       !singleTask && dispatch(fetchTaskForId(taskId));
     }
-    if (type === "PROJECT" && projectId) {
+    if ((isPureProject || type === "PROJECT_TASK") && projectId) {
       !singleProject && dispatch(fetchProjectById(projectId));
     }
-  }, [type, taskId, projectId, dispatch, singleTask, singleProject]);
+  }, [
+    type,
+    taskId,
+    projectId,
+    dispatch,
+    singleTask,
+    singleProject,
+    isTaskLike,
+    isPureProject,
+  ]);
 
   useEffect(() => {
     if (!isMountedRef.current) return;
@@ -240,12 +249,11 @@ export default function MessageListScreen() {
     const load = async () => {
       if (!isMountedRef.current) return;
 
-      if (type === "TASK" && taskId) {
+      if (isTaskLike && taskId) {
         await dispatch(
           fetchTaskMessages({ taskId, limit: PAGE_LIMIT, skip: 0 }),
         );
-      }
-      if (type === "PROJECT" && projectId) {
+      } else if (isPureProject && projectId) {
         await dispatch(
           fetchProjectMessages({ projectId, limit: PAGE_LIMIT, skip: 0 }),
         );
@@ -254,12 +262,12 @@ export default function MessageListScreen() {
     };
 
     load();
-  }, [type, taskId, projectId, dispatch]);
+  }, [type, taskId, projectId, dispatch, isTaskLike, isPureProject]);
 
   useEffect(() => {
     if (page === 0) return;
 
-    if (type === "TASK" && taskId) {
+    if (isTaskLike && taskId) {
       dispatch(
         fetchTaskMessages({
           taskId,
@@ -267,8 +275,7 @@ export default function MessageListScreen() {
           skip: pageRef.current.skip,
         }),
       );
-    }
-    if (type === "PROJECT" && projectId) {
+    } else if (isPureProject && projectId) {
       dispatch(
         fetchProjectMessages({
           projectId,
@@ -277,7 +284,7 @@ export default function MessageListScreen() {
         }),
       );
     }
-  }, [page, dispatch, type, taskId, projectId]);
+  }, [page, dispatch, type, taskId, projectId, isTaskLike, isPureProject]);
 
   const handleLoadMore = useCallback(() => {
     if (msgLoading) return;
@@ -294,11 +301,11 @@ export default function MessageListScreen() {
     pageRef.current.skip = 0;
 
     try {
-      if (type === "TASK" && taskId) {
+      if (isTaskLike && taskId) {
         await dispatch(
           fetchTaskMessages({ taskId, limit: PAGE_LIMIT, skip: 0 }),
         );
-      } else if (type === "PROJECT" && projectId) {
+      } else if (isPureProject && projectId) {
         await dispatch(
           fetchProjectMessages({ projectId, limit: PAGE_LIMIT, skip: 0 }),
         );
@@ -308,24 +315,23 @@ export default function MessageListScreen() {
         setIsRefreshing(false);
       }
     }
-  }, [type, taskId, projectId, dispatch]);
+  }, [type, taskId, projectId, dispatch, isTaskLike, isPureProject]);
 
   const handleSendMessage = async () => {
-    if (!messageText.trim() || isCompleted) return; // ✅ Extra safety check
+    if (!messageText.trim() || isCompleted) return;
     try {
       await onSendMessage({
         message: messageText,
-        type: type as "PROJECT" | "TASK",
+        type: type === "PROJECT_TASK" ? "TASK" : type,
         taskId,
         projectId,
       });
       setMessageText("");
       pageRef.current = { limit: PAGE_LIMIT, skip: 0 };
       setPage(0);
-      if ((type === "TASK" || type === "PROJECT_TASK") && taskId) {
+      if (isTaskLike && taskId) {
         dispatch(fetchTaskMessages({ taskId, limit: PAGE_LIMIT, skip: 0 }));
-      }
-      if (type === "PROJECT" && projectId) {
+      } else if (isPureProject && projectId) {
         dispatch(
           fetchProjectMessages({ projectId, limit: PAGE_LIMIT, skip: 0 }),
         );
@@ -333,7 +339,6 @@ export default function MessageListScreen() {
     } catch (error: any) {
       console.log("Error sending message:", error);
 
-      // ── Show the modal for THIS specific send failure ──────────────────
       setErrorModal((prev) => ({
         ...prev,
         isModalOpen: true,
@@ -356,12 +361,13 @@ export default function MessageListScreen() {
       try {
         await dispatch(deleteMessage({ messageId: messageId })).unwrap();
 
-        if (type === "PROJECT") {
+        if (isPureProject) {
           await onUpdateGlobalStateForProject({
             entity: "MESSAGE",
             action: "DELETE",
           });
         } else {
+          // TASK and PROJECT_TASK both use the task-scoped global state update
           await onUpdateGlobalStateForTask({
             entity: "MESSAGE",
             action: "DELETE",
@@ -383,17 +389,18 @@ export default function MessageListScreen() {
         }));
       }
     },
-    [dispatch, type, taskId, projectId, setErrorModal],
+    [dispatch, isPureProject, taskId, projectId, setErrorModal],
   );
 
   const renderMessage = useCallback(
     ({ item, index }: { item: MessageProps; index: number }) => {
-      
       const isMessageCreator = item.messageSender.userId === currentUserId;
 
-      const  isAllowToDelete =
-              loginUserRole === "ADMIN" ||
-              (loginUserRole === "EDITOR" && isMessageCreator);
+      const isAllowToDelete =
+        type === "TASK"
+          ? isMessageCreator
+          : loginUserRole === "ADMIN" ||
+            (loginUserRole === "EDITOR" && isMessageCreator); ;
       return (
         <MessageCard
           msg={item}
@@ -406,6 +413,7 @@ export default function MessageListScreen() {
           isAllowToDelete={isAllowToDelete}
           isCompleted={isCompleted ?? false}
           messageType={type}
+          
         />
       );
     },
@@ -528,7 +536,7 @@ export default function MessageListScreen() {
             >
               <HStack
                 flex={1}
-                bg={isCompleted ? "coolGray.100" : "coolGray.50"} // ✅ Gray out if completed
+                bg={isCompleted ? "coolGray.100" : "coolGray.50"}
                 borderRadius="xl"
                 borderWidth={1}
                 borderColor={isFocused ? "indigo.500" : "coolGray.200"}
@@ -540,14 +548,14 @@ export default function MessageListScreen() {
                   style={{
                     flex: 1,
                     fontSize: meta * 1.2,
-                    color: isCompleted ? "#9CA3AF" : "#111827", // ✅ Gray text if completed
+                    color: isCompleted ? "#9CA3AF" : "#111827",
                     paddingVertical: adjustSizeToResolveZoomInIssue(
                       baseSize * 0.008,
                     ),
                   }}
                   placeholder={
                     isCompleted
-                      ? `Chat closed ( ${type == "PROJECT" ? "Project" : "Task"} Completed)`
+                      ? `Chat closed ( ${isTaskLike ? "Task" : "Project"} Completed)`
                       : `Write a message...`
                   }
                   placeholderTextColor="#9CA3AF"
@@ -556,16 +564,16 @@ export default function MessageListScreen() {
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   multiline
-                  editable={!isCompleted} // ✅ Disable typing if completed
+                  editable={!isCompleted}
                 />
               </HStack>
 
               <Pressable
-                bg={isCompleted ? "coolGray.400" : "indigo.600"} // ✅ Gray out button if completed
+                bg={isCompleted ? "coolGray.400" : "indigo.600"}
                 p={adjustSizeToResolveZoomInIssue(baseSize * 0.03)}
                 borderRadius="xl"
                 onPress={handleSendMessage}
-                isDisabled={msgLoading || !messageText.trim() || isCompleted} // ✅ Disable if completed
+                isDisabled={msgLoading || !messageText.trim() || isCompleted}
                 _disabled={{ opacity: 0.6 }}
                 _pressed={{ bg: "indigo.700" }}
               >

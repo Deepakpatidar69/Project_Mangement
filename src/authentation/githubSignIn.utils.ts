@@ -3,10 +3,6 @@ import { authorize } from "react-native-app-auth";
 import { githubAuthUser } from "../store/slices/authSlice";
 import { AppDispatch } from "../store";
 
-console.log(`-------------------------------------------------`);
-console.log(`Github Redirect url is :::: ${process.env.GITHUB_REDIRECT_URL}`);
-console.log(`-------------------------------------------------`);
-
 const githubAuthConfig = {
   redirectUrl: process.env.GITHUB_REDIRECT_URL || "projectmanager://oauth", // TODO :: change for release build
   clientId: process.env.GITHUB_CLIENT_ID,
@@ -78,7 +74,6 @@ export const signInWithGitHub = async (dispatch: AppDispatch) => {
     const userCredential = await auth().signInWithCredential(githubCredential);
     const user = userCredential.user;
 
-    console.log("Firebase User Info (GitHub):", user.toJSON());
 
     // 4. If Firebase/GitHub didn't give us an email, fetch it directly
     let email = user.email;

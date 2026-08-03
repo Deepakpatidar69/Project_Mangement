@@ -3,8 +3,6 @@ import { getToken, removeToken } from "../utils/storage";
 import { API_RESOLVE_TIME_LIMIT } from "../utils/Constent";
 import { API_BASE_URL } from "@env";
 
-console.log("My API URL is:", API_BASE_URL); // Is it undefined?
-console.log("Entire process.env:", process.env); // If using a web framework
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

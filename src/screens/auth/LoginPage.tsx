@@ -40,7 +40,8 @@ export default function LoginScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { loading, error } = useSelector((state: RootState) => state.auth);
 
-  const navigation =  useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,9 +50,6 @@ export default function LoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [githubLoading, setGithubLoading] = useState(false);
 
-  // FIX: clear any stale auth errors (e.g. "No token found" left over from
-  // the app's initial loadUser() check on boot) every time this screen
-  // gains focus, so it never leaks into the Login UI.
   useFocusEffect(
     useCallback(() => {
       dispatch(clearAuthError());
@@ -59,8 +57,6 @@ export default function LoginScreen() {
     }, [dispatch]),
   );
 
-  // Whenever a new login error comes in from redux, make sure it's visible
-  // again (in case the user had dismissed a previous error)
   useEffect(() => {
     if (error?.loginError) {
       setShowError(true);
@@ -83,8 +79,6 @@ export default function LoginScreen() {
   const isLandscape = screenWidth > screenHeight;
   const isSmallPhone = screenWidth < 360;
 
-  // Keeps a value within sensible min/max bounds so text/images never get
-  // too tiny on small phones or too huge on tablets
   const clamp = (value: number, min: number, max: number) =>
     Math.min(Math.max(value, min), max);
 
@@ -98,8 +92,6 @@ export default function LoginScreen() {
       setGoogleLoading(true);
       await signInWithGoogle(dispatch);
     } catch (error) {
-      // signInWithGoogle already dispatches googleAuthUser, whose rejected
-      // case populates error.googleLoginError — nothing extra to set here.
       console.log("Login failed");
     } finally {
       setGoogleLoading(false);
@@ -111,8 +103,6 @@ export default function LoginScreen() {
       setGithubLoading(true);
       await signInWithGitHub(dispatch);
     } catch (error) {
-      // signInWithGitHub already dispatches githubAuthUser, whose rejected
-      // case populates error.githubLoginError — nothing extra to set here.
       console.log("Login failed");
     } finally {
       setGithubLoading(false);
@@ -120,14 +110,11 @@ export default function LoginScreen() {
   };
 
   const onClickForgotPass = () => {
-    navigation.navigate("ForgotPasswordScreen")
-  }
+    navigation.navigate("ForgotPasswordScreen");
+  };
 
-  // Cap the form width on large screens/tablets so it doesn't stretch edge to edge
   const formMaxWidth = isTablet ? 520 : 450;
 
-  // Calculate dynamic image size based on the 90% container width, clamped
-  // and reduced further in landscape so it doesn't push the form off-screen
   const rawImageSize =
     containerDimensions.baseSize > 0
       ? containerDimensions.baseSize * 0.45
@@ -152,16 +139,32 @@ export default function LoginScreen() {
       keyboardOpeningTime={0}
       resetScrollToCoords={{ x: 0, y: 0 }}
     >
-      <Box flex={1} bg="#F8F9FB" onLayout={onLayout}>
+      {/*
+        FIX: removed `flex={1}` here. This View no longer needs to fill
+        exactly the visible screen height — it just needs to hold its
+        natural content height. `onLayout` is still used, but only to
+        read WIDTH (for font/icon scaling below) — never height, so a
+        keyboard-triggered resize can't cascade into a layout change.
+      */}
+      <Box bg="#F8F9FB" onLayout={onLayout} minHeight={screenHeight}>
         {containerDimensions.baseSize > 0 && (
-          <Center height={"100%"} width={"100%"} px={isTablet ? "5%" : "0%"}>
+          <Center
+            width={"100%"}
+            px={isTablet ? "5%" : "0%"}
+            py="6%"
+            // FIX: no more height="100%" driving the whole form —
+            // Center just wraps content and lets it size naturally.
+          >
             <VStack
-              height={isLandscape ? "95%" : "92%"}
               w={isTablet ? "70%" : "90%"}
               maxW={`${formMaxWidth}px`}
+              // FIX: no more fixed height ("95%"/"92%") on this VStack.
+              // Its height now comes purely from its children's natural
+              // sizes + the spacing below, so nothing recalculates when
+              // the keyboard opens/closes.
             >
               {/* Logo/Icon */}
-              <Center flex={isLandscape ? 1 : 2} width={"100%"}>
+              <Center width={"100%"} mb="4%">
                 <Image
                   source={getAssets("LOGIN_ICON")}
                   style={{
@@ -174,11 +177,11 @@ export default function LoginScreen() {
 
               {/* Header */}
               <VStack
-                flex={1.4}
                 width={"100%"}
                 space={"4%"}
                 alignItems="center"
                 justifyContent="center"
+                mb="6%"
               >
                 <Text
                   fontSize={clamp(
@@ -214,12 +217,7 @@ export default function LoginScreen() {
               </VStack>
 
               {/* Inputs */}
-              <VStack
-                width={"100%"}
-                flex={3}
-                space={"5%"}
-                justifyContent="center"
-              >
+              <VStack width={"100%"} space={"5%"} mb="4%">
                 {/* Email */}
                 <FormControl isRequired>
                   <FormControl.Label
@@ -261,6 +259,8 @@ export default function LoginScreen() {
                       onChangeText={setEmail}
                       keyboardType="email-address"
                       autoCapitalize="none"
+                      allowFontScaling={false}
+                      maxFontSizeMultiplier={1}
                       style={{
                         flex: 1,
                         paddingVertical: 14,
@@ -311,6 +311,8 @@ export default function LoginScreen() {
                       spellCheck={false}
                       textContentType="password"
                       keyboardType="default"
+                      allowFontScaling={false}
+                      maxFontSizeMultiplier={1}
                       style={{
                         flex: 1,
                         paddingVertical: 14,
@@ -332,7 +334,7 @@ export default function LoginScreen() {
                 </FormControl>
 
                 {/* Forgot Password */}
-                <Pressable onPress={onClickForgotPass } alignItems="flex-end">
+                <Pressable onPress={onClickForgotPass} alignItems="flex-end">
                   <Text color="#4F46E5" fontSize="sm" fontWeight="medium">
                     Forgot Password?
                   </Text>
@@ -347,7 +349,7 @@ export default function LoginScreen() {
                     containerDimensions.baseSize * 0.015,
                   )}
                   borderRadius="lg"
-                  mt={2}
+                  mb="3%"
                   flexDirection="row"
                   alignItems="center"
                   justifyContent="space-between"
@@ -375,9 +377,8 @@ export default function LoginScreen() {
               )}
 
               {/* Login Button */}
-              <Box width={"100%"} justifyContent="center">
+              <Box width={"100%"} justifyContent="center" mb="4%">
                 <Button
-                  mt={2}
                   py={clamp(
                     adjustSizeToResolveZoomInIssue(
                       containerDimensions.baseSize * 0.03,
@@ -409,7 +410,7 @@ export default function LoginScreen() {
               </Box>
 
               {/* Divider */}
-              <HStack alignItems="center" my={2} space={3}>
+              <HStack alignItems="center" mb="4%" space={3}>
                 <Divider flex={1} bg="#E5E7EB" />
                 <Text
                   color="#9CA3AF"
@@ -423,7 +424,7 @@ export default function LoginScreen() {
               </HStack>
 
               {/* Social Buttons */}
-              <VStack width={"100%"} flex={2} space={3} justifyContent="center">
+              <VStack width={"100%"} space={3} mb="4%">
                 <Pressable
                   style={{
                     flexDirection: "row",
@@ -495,9 +496,6 @@ export default function LoginScreen() {
 
               {/* Switch to Signup */}
               <Pressable
-                mt={adjustSizeToResolveZoomInIssue(
-                  containerDimensions.baseSize * 0.04,
-                )}
                 onPress={() => {
                   dispatch(resetAuthState());
                   navigation.navigate("SignupScreen");

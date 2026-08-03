@@ -121,9 +121,12 @@ export default function TaskDetailScreen({ route }: any) {
   }, [dispatch, taskId]);
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ── Clear stale task messages only when navigating to a DIFFERENT task.
   useEffect(() => {
-
     dispatch(clearTaskMessages());
+  }, [taskId, dispatch]);
+
+  useEffect(() => {
     // Determine if we are still waiting on data or layout
     const isUIReady = containerDimensions.baseSize > 0;
     // We only consider the task "ready" if it exists AND its ID matches the route ID

@@ -97,7 +97,7 @@ export const MessageCard = ({
      else if(messageType === "PROJECT_TASK") {
         return `${msg.messageSender.userRole?.charAt(0)}${msg.messageSender.userRole?.slice(1).toLowerCase()}`;
       }else{
-        return "CREATOR";
+        return  `${"CREATOR"?.charAt(0)}${"CREATOR"?.slice(1).toLowerCase()}`;
       }
 
     }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { TextInput, Platform } from "react-native";
-import { Box, Text, HStack, VStack, Pressable, Icon } from "native-base";
+import { TextInput, Platform, Keyboard, ActivityIndicator } from "react-native";
+import { Box, Text, HStack, VStack, Pressable, Icon, Spinner } from "native-base";
 
 import {
   Feather,
@@ -66,23 +66,29 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
   backgroundColor = "#ffffff",
 }) => {
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false); // Add loading state
 
   // Global error modal setter
   const setErrorModal = useSetAtom(isDisplayErrorMessageAtom);
 
   const dispatch = useDispatch<AppDispatch>();
 
-  // Reset message when modal closes
+  // Reset message and loading state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setMessage("");
+      setIsLoading(false);
     }
   }, [isOpen]);
 
   const { screenHeight, screenWidth } = getScreenDimensions();
 
   const handleSendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || isLoading) return;
+
+    Keyboard.dismiss(); // Close keyboard on tap
+    setIsLoading(true); // Start loading
+
     try {
       if (type == "TASK") {
         await onHandleSendMessage({
@@ -117,6 +123,8 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
           dispatch(clearMessageError());
         },
       }));
+    } finally {
+      setIsLoading(false); // Stop loading after completion (success or error)
     }
   };
 
@@ -177,6 +185,7 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
                 bg="coolGray.100"
                 borderRadius="full"
                 p={2}
+                disabled={isLoading} // Prevent closing manually while sending if desired
               >
                 <Feather name="x" size={iconSize} color="#374151" />
               </Pressable>
@@ -297,7 +306,7 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
                     width: "100%",
                     paddingHorizontal: 12,
                     paddingVertical: 12,
-                    fontSize: bodySize,
+                    fontSize: adjustSizeToResolveZoomInIssue(bodySize),
                     color: "#111827",
                     textAlignVertical: "top",
                   }}
@@ -308,6 +317,7 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
                   multiline={true}
                   maxLength={1000}
                   autoCorrect={true}
+                  editable={!isLoading} // Disable input while loading
                 />
 
                 {/* Textarea Footer Controls */}
@@ -333,12 +343,12 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
               <Box flex={1}>
                 <Pressable
                   onPress={handleSendMessage}
-                  isDisabled={!message.trim()}
+                  isDisabled={!message.trim() || isLoading}
                 >
                   {({ isPressed }) => (
                     <Box
                       bg={
-                        !message.trim()
+                        !message.trim() || isLoading
                           ? "indigo.300"
                           : isPressed
                             ? "indigo.800"
@@ -350,18 +360,29 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
                       alignItems="center"
                     >
                       <HStack space={2} alignItems="center">
-                        <Feather
-                          name="send"
-                          size={adjustSizeToResolveZoomInIssue(iconSize * 0.85)}
-                          color="white"
-                        />
-                        <Text
-                          fontSize={buttonSize}
-                          fontWeight="semibold"
-                          color="white"
-                        >
-                          Send
-                        </Text>
+                      
+                          <>
+                            {isLoading ? (
+                              <Spinner size={adjustSizeToResolveZoomInIssue(buttonSize * 1.2)} color="white" />
+                            ) : (
+                              <Feather
+                                name="send"
+                                size={adjustSizeToResolveZoomInIssue(
+                                  iconSize * 0.85,
+                                )}
+                                color="white"
+                              />
+                            )}
+
+                            <Text
+                              fontSize={buttonSize}
+                              fontWeight="semibold"
+                              color="white"
+                            >
+                              Send
+                            </Text>
+                          </>
+                        
                       </HStack>
                     </Box>
                   )}
@@ -370,7 +391,7 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
 
               {/* Cancel */}
               <Box flex={1}>
-                <Pressable onPress={onClose}>
+                <Pressable onPress={onClose} isDisabled={isLoading}>
                   {({ isPressed }) => (
                     <Box
                       borderWidth={1.5}
@@ -380,6 +401,7 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
                       justifyContent="center"
                       alignItems="center"
                       bg={isPressed ? "coolGray.50" : "white"}
+                      opacity={isLoading ? 0.5 : 1}
                     >
                       <Text
                         fontSize={buttonSize}
