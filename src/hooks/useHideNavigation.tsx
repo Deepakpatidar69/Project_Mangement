@@ -1,6 +1,5 @@
 import { useEffect, useCallback } from "react";
 import { AppState, Platform, StatusBar } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import SystemNavigationBar from "react-native-system-navigation-bar";
 
 export function useHideHardwareNavigationButton() {
@@ -8,38 +7,31 @@ export function useHideHardwareNavigationButton() {
     SystemNavigationBar.navigationHide();
     StatusBar.setHidden(true, "none");
 
-    // Android-specific navigation bar hiding
     if (Platform.OS === "android") {
       try {
         await SystemNavigationBar.stickyImmersive();
-      } catch (err) {
-        console.error(
-          "Err At :: useHideNavigation :: useHideHardwareNavigationButton ::  setting immersive mode:",
-          err,
-        );
+      } catch (error) {
+        console.log("Error setting immersive mode:", error);
       }
     }
   }, []);
 
   useEffect(() => {
+    // 1. Hide the hardware buttons immediately when the app launches
     applyHideNavigation();
 
+    // 2. Re-hide them if the user switches apps and comes back (foreground)
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         setTimeout(() => {
           applyHideNavigation();
-        }, 200);
+        }, 200); // Small delay ensures the OS is ready to accept the command
       }
     });
 
+    // 3. Cleanup the listener
     return () => {
       subscription.remove();
     };
   }, [applyHideNavigation]);
-
-  useFocusEffect(
-    useCallback(() => {
-      setTimeout(applyHideNavigation, 200);
-    }, [applyHideNavigation]),
-  );
 }

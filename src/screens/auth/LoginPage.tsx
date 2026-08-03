@@ -35,6 +35,7 @@ import { signInWithGoogle } from "../../authentation/googleSignIn.utils";
 import { signInWithGitHub } from "../../authentation/githubSignIn.utils";
 import { RouteStackParamStack } from "../../appNavigator/navigator.utils";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useHideHardwareNavigationButton } from "../../hooks/useHideNavigation";
 
 export default function LoginScreen() {
   const dispatch = useDispatch<AppDispatch>();
@@ -42,6 +43,8 @@ export default function LoginScreen() {
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
+
+    useHideHardwareNavigationButton();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -1,13 +1,5 @@
 import React, { useEffect } from "react";
-import {
-  View,
-  Pressable,
-  FlatList,
-  ActivityIndicator,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-} from "react-native";
+import { View, Pressable, FlatList, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
@@ -26,7 +18,7 @@ import {
 } from "../../utils/Helper";
 import { ProjectProps } from "../../store/slices/types";
 import { Ionicons } from "@expo/vector-icons";
-import { Avatar, Box, HStack, Icon, Text } from "native-base";
+import { Avatar, Box, HStack, Icon } from "native-base";
 import { getStatus } from "../utils/screen.utils";
 import { isDisplayErrorMessageAtom } from "../../utils/Constent"; // adjust path to where you defined this atom
 import AppLoader from "../../components/CustomLoader";
@@ -314,9 +306,11 @@ const ProjectRaw = ({
             }}
           >
             <Text
-              color="white"
-              fontSize={adjustSizeToResolveZoomInIssue(baseSize * 0.08)} 
-              fontWeight="semibold"
+              style={{
+                color: "white",
+                fontSize: adjustSizeToResolveZoomInIssue(baseSize * 0.08),
+                fontWeight: "semibold",
+              }}
             >
               {creatorInitial}
             </Text>
@@ -376,9 +370,13 @@ export const RecentProjectsSection = ({
   const CARD_WIDTH =
     containerDimensions.width > 0 ? containerDimensions.width * 0.52 : 180;
 
-  const fontSize = adjustSizeToResolveZoomInIssue(
-    containerDimensions.baseSize * 0.055,
-  );
+  const fontSize = {
+    header: adjustSizeToResolveZoomInIssue(containerDimensions.width * 0.048),
+    title: adjustSizeToResolveZoomInIssue(containerDimensions.width * 0.038),
+    meta: adjustSizeToResolveZoomInIssue(containerDimensions.width * 0.03),
+    badge: adjustSizeToResolveZoomInIssue(containerDimensions.width * 0.028),
+    iconSize: adjustSizeToResolveZoomInIssue(containerDimensions.width * 0.055),
+  };
 
   const isEmpty = !latestProjects || latestProjects.length === 0;
 
@@ -445,13 +443,15 @@ export const RecentProjectsSection = ({
     >
       <Ionicons
         name="folder-open-outline"
-        size={40}
+        size={adjustSizeToResolveZoomInIssue(
+          containerDimensions.baseSize * 0.12,
+        )}
         color="#d1d5db"
         style={{ marginBottom: 12 }}
       />
       <Text
         style={{
-          fontSize: 14,
+          fontSize: adjustSizeToResolveZoomInIssue(fontSize.meta * 1.2),
           color: "#9ca3af",
           marginBottom: 16,
         }}
@@ -478,7 +478,7 @@ export const RecentProjectsSection = ({
         <Text
           style={{
             color: "#fff",
-            fontSize: 13,
+            fontSize: adjustSizeToResolveZoomInIssue(fontSize.meta * 1.5),
             fontWeight: "700",
           }}
         >
@@ -503,7 +503,7 @@ export const RecentProjectsSection = ({
           >
             <Text
               style={{
-                fontSize: fontSize,
+                fontSize: fontSize.header,
                 fontWeight: "700",
                 color: "#111827",
               }}
@@ -512,9 +512,13 @@ export const RecentProjectsSection = ({
             </Text>
             <Pressable onPress={onTapViewAllProjects}>
               <Text
-                fontSize={fontSize * 0.85}
-                color={"violet.600"}
-                fontWeight={"500"}
+                style={{
+                  fontSize: adjustSizeToResolveZoomInIssue(
+                    fontSize.header * 0.85,
+                  ),
+                  color: "violet.600",
+                  fontWeight: "500",
+                }}
               >
                 View All
               </Text>
@@ -545,7 +549,7 @@ export const RecentProjectsSection = ({
             </Box>
           ) : (
             <FlatList
-              data={latestProjects ?? []}
+              data={latestProjects ?? []}          
               keyExtractor={keyExtractor}
               renderItem={renderItem}
               horizontal

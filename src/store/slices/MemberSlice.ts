@@ -98,20 +98,6 @@ export const removeMember = createAsyncThunk(
   },
 );
 
-export const leaveProject = createAsyncThunk(
-  "member/leave",
-  async (projectId: string, thunkAPI) => {
-    try {
-      const res = await apiClient.delete(
-        API_ENDPOINTS.LEAVE_PROJECT(projectId),
-      );
-      return res.data;
-    } catch (err: any) {
-      return thunkAPI.rejectWithValue("Leave failed");
-    }
-  },
-);
-
 /* ================= SLICE ================= */
 
 const memberSlice = createSlice({
@@ -222,26 +208,6 @@ const memberSlice = createSlice({
         state.success = false;
       })
 
-      /* ===== LEAVE ===== */
-      .addCase(leaveProject.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = false;
-      })
-      .addCase(leaveProject.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
-
-        const left = formatSingleMember(action.payload.leavedProject);
-        if (!left) return;
-
-        state.members = [];
-      })
-      .addCase(leaveProject.rejected, (state, action: any) => {
-        state.loading = false;
-        state.error = action.payload;
-        state.success = false;
-      });
   },
 });
 

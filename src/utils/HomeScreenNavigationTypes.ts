@@ -26,7 +26,6 @@ export const HomeScreenNavigationType = [
     screen: "PRIVATE_TASK_SCREEN",
     icon: "tasks",
     activeIcon: "tasks",
-
     iconType: FontAwesome,
   },
 

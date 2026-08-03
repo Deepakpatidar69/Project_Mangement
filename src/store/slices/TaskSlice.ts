@@ -710,7 +710,7 @@ const taskSlice = createSlice({
         } else {
           state.privateTasks.tasks = tasks ?? [];
         }
-        state.privateTasks.totalTasks = action.payload.privateTasks.totalTasks;
+        state.privateTasks.totalTasks = action.payload.privateTasks.totalTask;
         state.loading = false;
         state.success = true;
       })

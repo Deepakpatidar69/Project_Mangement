@@ -327,15 +327,15 @@ export default function MessageListScreen() {
         projectId,
       });
       setMessageText("");
-      pageRef.current = { limit: PAGE_LIMIT, skip: 0 };
-      setPage(0);
-      if (isTaskLike && taskId) {
-        dispatch(fetchTaskMessages({ taskId, limit: PAGE_LIMIT, skip: 0 }));
-      } else if (isPureProject && projectId) {
-        dispatch(
-          fetchProjectMessages({ projectId, limit: PAGE_LIMIT, skip: 0 }),
-        );
-      }
+      // pageRef.current = { limit: PAGE_LIMIT, skip: 0 };
+      // setPage(0);
+      // if (isTaskLike && taskId) {
+      //   dispatch(fetchTaskMessages({ taskId, limit: PAGE_LIMIT, skip: 0 }));
+      // } else if (isPureProject && projectId) {
+      //   dispatch(
+      //     fetchProjectMessages({ projectId, limit: PAGE_LIMIT, skip: 0 }),
+      //   );
+      // }
     } catch (error: any) {
       console.log("Error sending message:", error);
 

@@ -37,13 +37,13 @@ import { ModeTab } from "./ModeTab";
 interface ProjectListProps {
   onTapProfile: () => void;
   onClickCreateProject: () => void;
-  isActive?: boolean; // <-- 1. Add isActive prop
+  isActive?: boolean;
 }
 
 const ProjectList = ({
   onTapProfile,
   onClickCreateProject,
-  isActive = true, // <-- Default to true so it works safely anywhere
+  isActive = true,
 }: ProjectListProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const navigation =
@@ -66,10 +66,7 @@ const ProjectList = ({
   const [skeletonContainerHeight, setSkeletonContainerHeight] =
     useState<number>(0);
 
-  // 2. Initialize the global loader setter
   const setDisplayAppLoader = useSetAtom(AppLoaderAtom);
-
-  // Global error modal setter
   const setErrorModal = useSetAtom(isDisplayErrorMessageAtom);
 
   const cardWidth = useMemo(
@@ -103,8 +100,6 @@ const ProjectList = ({
   const pageRef = useRef({ limit: 10, skip: 0 });
   const [page, setPage] = useState(0);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-
-  // ── Pull-to-refresh state ───────────────────────────────────────────────
   const [refreshing, setRefreshing] = useState(false);
 
   // ── Handle Fetching & Tab Switching ────────────────────────────────────────
@@ -129,7 +124,6 @@ const ProjectList = ({
     };
   }, [projectMode, fetchType, page, dispatch]);
 
-  // ── Show global error modal whenever the slice reports a project error ─────
   useEffect(() => {
     if (!error) return;
 
@@ -189,15 +183,21 @@ const ProjectList = ({
   const w = containerDimensions.width;
   const switchFontSize = adjustSizeToResolveZoomInIssue(w * 0.036);
 
-  // ── Manual load more ──────────────────────────────────────────────────────
+  // ── Variables for Load More Logic ─────────────────────────────────────────
+  const currentTotalCount = projectMode === "CREATED" ? totalCreatedProjects : totalAssignProjects;
+  const hasMoreProjects = activeProjects.length < currentTotalCount;
+  const isSearchEmpty = search.trim() === "";
+
+  // ── PERFECTED Manual load more ────────────────────────────────────────────
   const handleLoadMore = useCallback(() => {
-    if (isLoading) return;
+    if (isLoading || !hasMoreProjects) return;
+
     pageRef.current = {
       limit: pageRef.current.limit,
       skip: pageRef.current.skip + pageRef.current.limit,
     };
     setPage((p) => p + 1);
-  }, [isLoading]);
+  }, [isLoading, hasMoreProjects]);
 
   // ── Pull-to-refresh handler ───────────────────────────────────────────────
   const onRefresh = useCallback(async () => {
@@ -241,7 +241,6 @@ const ProjectList = ({
 
   // ── layout fix & Global Loader Control ────────────────────────────────────
   useEffect(() => {
-    // STOP if this screen is hiding in the background
     if (!isActive) return;
 
     if (containerDimensions.baseSize === 0) {
@@ -269,11 +268,9 @@ const ProjectList = ({
       baseSize: Math.min(tabHeight, tabWidth),
     });
 
-    // Hide global loader once calculated
     setDisplayAppLoader({ isLoading: false, message: "" });
   }, [containerDimensions.baseSize, setDisplayAppLoader, isActive]);
 
-  // Failsafe cleanup
   useEffect(() => {
     return () => {
       setDisplayAppLoader({ isLoading: false, message: "" });
@@ -286,7 +283,6 @@ const ProjectList = ({
   return (
     <View flex={1} justifyContent={"center"} alignItems={"center"} px={"3%"}>
       <Box width={"100%"} height={"100%"} onLayout={onLayout}>
-        {/* Render content only when container dimensions are calculated */}
         {containerDimensions.baseSize > 0 && (
           <VStack
             width={containerDimensions.width}
@@ -379,19 +375,19 @@ const ProjectList = ({
                     fetchType={fetchType}
                   />
                 }
+                
+                /* ── PERFECTED LIST FOOTER COMPONENT ── */
                 ListFooterComponent={
-                  <FooterLoadMoreButton
-                    currentCount={filteredProjects.length ?? 0}
-                    fontSize={containerDimensions.width * 0.04}
-                    isLoading={isLoading && page > 0}
-                    onLoadMore={handleLoadMore}
-                    totalCount={
-                      projectMode == "CREATED"
-                        ? totalCreatedProjects
-                        : totalAssignProjects
-                    }
-                    type="Project"
-                  />
+                  isSearchEmpty && hasMoreProjects ? (
+                    <FooterLoadMoreButton
+                      currentCount={activeProjects.length} // using real data count
+                      fontSize={containerDimensions.width * 0.04}
+                      isLoading={isLoading && page > 0}
+                      onLoadMore={handleLoadMore}
+                      totalCount={currentTotalCount}
+                      type="Project"
+                    />
+                  ) : null
                 }
               />
             )}

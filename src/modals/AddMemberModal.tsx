@@ -3,11 +3,8 @@ import { Platform, TextInput, Keyboard, ActivityIndicator } from "react-native";
 import { Box, Text, HStack, VStack, Pressable, Select } from "native-base";
 // @ts-ignore
 import { Feather } from "react-native-vector-icons";
-import { useDispatch } from "react-redux";
 import { adjustSizeToResolveZoomInIssue } from "../utils/Helper";
-import { AppDispatch } from "../store";
 import { fetchSearchResult } from "../api/api.call";
-import { addMember } from "../store/slices/MemberSlice";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { MemberRole } from "../store/slices/types";
 
@@ -41,7 +38,7 @@ export interface AddMemberModalProps {
     email: string;
     projectId: string;
     role: MemberRole;
-  }) => void | Promise<void>; // Updated to support async Promises for loading state
+  }) => void | Promise<void>;
   /** Card background – default white */
   backgroundColor?: string;
   /** Overlay scrim color – default dark semi-transparent */
@@ -113,31 +110,37 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
       setError("");
       setLoading(false);
       setSearchLoading(false);
-      searchResults.length > 0 && setSearchResults([]);
+      setSearchResults((prev) => (prev.length > 0 ? [] : prev)); // Fix: Prevent extra render
       setIsUserSelected(false);
     }
   }, [isOpen]);
 
   // ── Debounced Search ──────────────────────────────────────────────────────
   useEffect(() => {
+    let isMounted = true; // Fix: Tracks if the current search is still valid
+
     if (isUserSelected || !userId.trim()) {
-      setSearchResults([]);
+      setSearchResults((prev) => (prev.length > 0 ? [] : prev)); // Fix: Prevent extra render
       return;
     }
 
     const timer = setTimeout(async () => {
       try {
-        setSearchLoading(true);
+        if (isMounted) setSearchLoading(true);
         const response = await fetchSearchResult(userId, 5);
-        setSearchResults(response?.users ?? []);
+        if (isMounted) setSearchResults(response?.users ?? []);
       } catch {
-        setSearchResults([]);
+        if (isMounted)
+          setSearchResults((prev) => (prev.length > 0 ? [] : prev));
       } finally {
-        setSearchLoading(false);
+        if (isMounted) setSearchLoading(false);
       }
     }, 400);
 
-    return () => clearTimeout(timer);
+    return () => {
+      isMounted = false; // Fix: cleanup invalidates old API responses
+      clearTimeout(timer);
+    };
   }, [userId, isUserSelected]);
 
   // ── Submit Logic ──────────────────────────────────────────────────────────
@@ -155,9 +158,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
       setError("");
 
       await onSuccess!({ email: userId, role: role, projectId: projectId! });
-      // Close the modal ONLY on success
     } catch (err: any) {
-      // Instead of closing the modal, set the local error state
       const errorMessage =
         typeof err === "string"
           ? err
@@ -166,7 +167,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
       setError(errorMessage);
     } finally {
-      setLoading(false);
+      // Small safeguard check if the component hasn't been unmounted/closed by the parent yet
+      if (isOpen) {
+        setLoading(false);
+      }
     }
   };
 
@@ -243,7 +247,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
               <Box h={0.5} bg="coolGray.100" />
             </VStack>
 
-            {/* Form Input Block - Using Flex instead of hard percentages for better responsiveness */}
+            {/* Form Input Block */}
             <VStack width={"100%"} flex={1} space={"4%"} mt={"2%"}>
               {/* Search Box Component Layout */}
               <Box width={"100%"} zIndex={50}>
@@ -289,7 +293,6 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                   )}
                 </HStack>
 
-                {/* ✨ IMPROVEMENT: Error Message placed directly under the search field */}
                 {!!error && (
                   <HStack alignItems="center" space={1.5} mt={2} px={1}>
                     <Feather
@@ -329,7 +332,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                         onPress={() => {
                           setUserId(user.email);
                           setIsUserSelected(true);
-                          setSearchResults([]);
+                          setSearchResults([]); // Clears immediately on press
                           setError("");
                         }}
                       >
@@ -459,7 +462,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                 py={"4%"}
                 alignItems="center"
                 space={"3%"}
-                mt="auto" // Pushes the banner to the bottom of the flex container
+                mt="auto"
               >
                 <Box
                   bg="blue.500"
@@ -501,10 +504,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                     <Box
                       bg={
                         loading || !userId.trim()
-                          ? "indigo.300" // Visually disable state
+                          ? "indigo.300"
                           : isPressed
-                            ? "indigo.700" // Pressed state
-                            : "indigo.500" // Default state
+                            ? "indigo.700"
+                            : "indigo.500"
                       }
                       borderRadius="xl"
                       py={"6%"}
@@ -513,7 +516,12 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                     >
                       <HStack space={2} alignItems="center">
                         {loading ? (
-                          <ActivityIndicator size={adjustSizeToResolveZoomInIssue(buttonSize * 1.2)} color="white" />
+                          <ActivityIndicator
+                            size={adjustSizeToResolveZoomInIssue(
+                              buttonSize * 1.2,
+                            )}
+                            color="white"
+                          />
                         ) : (
                           <Feather
                             name="user-plus"

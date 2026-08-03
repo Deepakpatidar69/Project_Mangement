@@ -1,6 +1,6 @@
 import axios from "axios";
 import { getToken, removeToken } from "../utils/storage";
-import { API_RESOLVE_TIME_LIMIT } from "../utils/Constent";
+import {  API_RESOLVE_TIME_LIMIT } from "../utils/Constent";
 import { API_BASE_URL } from "@env";
 
 

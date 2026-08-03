@@ -40,6 +40,7 @@ import {
 } from "../utils/AppDefaultProps";
 import {
   deleteProject,
+  leaveProject,
   updateProjectDeadline,
   updateProjectPriority,
   updateProjectStats,
@@ -59,7 +60,11 @@ import {
 import { getAssets } from "../AssetsMapping/AssetMap";
 import { MemberProps, MemberRole, PriorityLevel } from "../store/slices/types";
 import { formatDate } from "../utils/Helper";
-import { addMember, removeMember, updateMemberRole } from "../store/slices/MemberSlice";
+import {
+  addMember,
+  removeMember,
+  updateMemberRole,
+} from "../store/slices/MemberSlice";
 import { updateUserStats } from "../store/slices/authSlice";
 import {
   removeRecentProject,
@@ -67,7 +72,10 @@ import {
   updateRecentProject,
   updateRecentTask,
 } from "../store/slices/DashboardSlice";
-import { onUpdateGlobalStateForProject, onUpdateGlobalStateForTask } from "../utils/GlobalStateUpdateUtils";
+import {
+  onUpdateGlobalStateForProject,
+  onUpdateGlobalStateForTask,
+} from "../utils/GlobalStateUpdateUtils";
 import AddMemberModal from "./AddMemberModal";
 
 /**
@@ -130,10 +138,10 @@ export const onSendMessage = async ({
       });
     } else {
       await store.dispatch(sendMessage({ message: message, taskId: taskId }));
-          await onUpdateGlobalStateForTask({
-            entity: "MESSAGE",
-            action: "CREATE",
-          });
+      await onUpdateGlobalStateForTask({
+        entity: "MESSAGE",
+        action: "CREATE",
+      });
     }
     onCloseMessageModal();
   } catch (error) {
@@ -169,17 +177,19 @@ const onAddMember = async ({
       addMember({ memberEmail: email, projectId: projectId, role: role }),
     )
     .unwrap();
-    onUpdateGlobalStateForProject({entity : "MEMBER" ,action : "CREATE"})
+  onUpdateGlobalStateForProject({ entity: "MEMBER", action: "CREATE" });
   onCloseMemberModal();
 };
 
 export const handleRemoveMember = async (member: MemberProps) => {
-   await store.dispatch(removeMember({ projectId: member.projectId, memberId: member.memberId }));
-    await onUpdateGlobalStateForProject({
-      entity: "MEMBER",
-      action: "DELETE",
-    });
-  };
+  await store.dispatch(
+    removeMember({ projectId: member.projectId, memberId: member.memberId }),
+  );
+  await onUpdateGlobalStateForProject({
+    entity: "MEMBER",
+    action: "DELETE",
+  });
+};
 
 export const onOpenAddMemberModal = async ({
   isDisplay,
@@ -188,8 +198,6 @@ export const onOpenAddMemberModal = async ({
   isDisplay: boolean;
   projectId: string;
 }) => {
-  console.log(`Is am call in this ..............`);
-
   atomStore.set(displayAddMemberModalAtom, {
     isOpen: isDisplay,
     projectId: projectId,
@@ -224,8 +232,6 @@ export const onTapDeleteButton = async ({
   isProjecttask?: boolean;
   onSuccess?: () => void; // 2. Add type definition
 }) => {
-
-
   // 3. Make this an async function so we can await it
   const rightButtonFunc = async () => {
     if (type == "PROJECT") {
@@ -302,13 +308,11 @@ export const onClickDeleteTask = async ({
         }),
       )
       .unwrap();
-      await onUpdateGlobalStateForProject({
-        entity: "TASK",
-        action: "DELETE",
-      });
+    await onUpdateGlobalStateForProject({
+      entity: "TASK",
+      action: "DELETE",
+    });
   } else {
-    console.log(`Task id in the :: onClickDeleteTask :: ${taskId}`);
-
     await store.dispatch(deletePrivateTask(taskId as string)).unwrap();
     await store.dispatch(updateUserStats({ tasksCount: -1 }));
     await store.dispatch(removeRecentTask(taskId as string));
@@ -323,6 +327,77 @@ export const onClickDeleteProject = async ({
   await store.dispatch(deleteProject(projectId as string)).unwrap();
   await store.dispatch(updateUserStats({ projectsCount: -1 }));
   await store.dispatch(removeRecentProject(projectId));
+};
+
+/**
+ * ------------------------------------------------------------------------------------------------------
+ * ------------------------------------- FOR LEAVE PROJECT ----------------------------------------------
+ * ------------------------------------------------------------------------------------------------------
+ *
+ */
+
+export const onCloseLeaveProjectModal = async () => {
+  atomStore.set(DisplayCommonModalPopUpAtom, commonModalDefaultProps);
+};
+
+export const onClickLeaveProject = async ({
+  projectId,
+  onSuccess, // Pass a navigation callback here
+  onError, // Pass a toast/error callback here
+}: {
+  projectId: string;
+  onSuccess?: () => void;
+  onError?: (err: string) => void;
+}) => {
+  try {
+    await store.dispatch(leaveProject(projectId)).unwrap();
+
+    if (onSuccess) onSuccess();
+  } catch (err: any) {
+    if (onError) onError(err);
+  }
+};
+
+
+
+export const onTapLeaveProject = async ({
+  projectId,
+  onSuccess,
+}: {
+  projectId: string;
+  onSuccess?: () => void;
+}) => {
+  const rightButtonFunc = async () => {
+    await onClickLeaveProject({ projectId });
+    onSuccess?.();
+  };
+
+  atomStore.set(DisplayCommonModalPopUpAtom, {
+    isModalOpen: true,
+    title: "Leave Project", // You can move these to AppDefaultProps later if you wish
+    subTitle: "Are you sure you want to leave this project?",
+    leftButtonText: "Cancel",
+    rightButtonText: "Leave",
+    img: getAssets("DELETE_PROJECT"), // Using delete asset as a fallback, replace if you map a "LEAVE_PROJECT" asset
+    note: "You will permanently lose access to all tasks and messages in this project.",
+    isShowBothButton: true,
+    onClickRightButton: async () => {
+      onCloseLeaveProjectModal();
+
+      try {
+        await rightButtonFunc();
+      } catch (error) {
+        console.error("Leave project failed:", error);
+      }
+    },
+    onClickLeftButton: onCloseLeaveProjectModal,
+    colorConfig: {
+      rightButtonBgColor: "red.500",
+      rightButtonTextColor: "white",
+      onPressRightButtonBgColor: "red.600",
+      noteTextColor: "orange.400",
+    },
+  });
 };
 
 /**
@@ -351,7 +426,6 @@ export const onUpdateDeadline = async ({
 }) => {
   try {
     if (!taskId && !projectId) {
-      console.log(`uniqueId is not Present in this...`);
       return;
     }
 
@@ -399,9 +473,6 @@ export const onTapDeadlineUpdateModal = async ({
   isProjectTask?: boolean;
 }) => {
   const onSuccessFunc = async (newDeadline: Date) => {
-    console.log(`Current Deadline is :: ${formatDate(currentDeadline, true)} `);
-    console.log(`newDeadline Deadline is :: ${formatDate(newDeadline, true)} `);
-
     if (formatDate(currentDeadline, true) == formatDate(newDeadline, true))
       return;
 
@@ -567,14 +638,8 @@ export const onTapMemberRoleUpdate = async ({
   projectId: string;
   memberId: string;
 }) => {
-  console.log(
-    `Member Details is :: memberId :: ${memberId} :: projectId :: ${projectId}`,
-  );
-
   const succesFunc = async (selectedRole: MemberRole) => {
     if (currentRole == selectedRole) return;
-
-    console.log(`Selected Role is :: ${selectedRole}`);
 
     await onUpdateRole({
       memberId,
@@ -632,15 +697,14 @@ const onUpdateStatus = async ({
           changes: { status: isCompleted ? false : true },
         }),
       );
-
     } else if (isProjectTask && projectId && taskId) {
       store.dispatch(
         updateProjectTaskStatus({ taskId: taskId, projectId: projectId }),
       );
-         await onUpdateGlobalStateForProject({
-           entity: "TASK_COMPLETE",
-           action: isCompleted ? "DELETE" : "CREATE",
-         });
+      await onUpdateGlobalStateForProject({
+        entity: "TASK_COMPLETE",
+        action: isCompleted ? "DELETE" : "CREATE",
+      });
     } else if (type === "TASK" && taskId) {
       await store.dispatch(updatePrivateTaskStatus(taskId)).unwrap();
       await store.dispatch(
@@ -683,10 +747,6 @@ export const onTapMarkComplete = async ({
       isCompleted: isComplete,
     });
 
-  console.log(
-    `Is Complete is ::: ${isComplete} & type is :: ${type} :: ${MARK_INCOMPLETE_TITLE} :: ${MARK_COMPLETE_TITLE}`,
-  );
-
   const titleText = isComplete ? MARK_INCOMPLETE_TITLE : MARK_COMPLETE_TITLE;
 
   const subTitleText =
@@ -721,8 +781,6 @@ export const onTapMarkComplete = async ({
         ? "TASK_INCOMPLETE_ICON"
         : "MARK_COMPLETE_TASK",
   );
-
-  console.log(`Title text is :: ${titleText}`);
 
   atomStore.set(DisplayCommonModalPopUpAtom, {
     isModalOpen: true,

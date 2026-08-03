@@ -259,6 +259,27 @@ export const updateProjectPriority = createAsyncThunk(
 );
 
 //
+// 🔥 LEAVE PROJECT
+//
+export const leaveProject = createAsyncThunk(
+  "project/leave",
+  async (projectId: string, thunkAPI) => {
+    try {
+      const res = await apiClient.delete(
+        API_ENDPOINTS.LEAVE_PROJECT(projectId),
+      );
+
+      return res.data;
+    } catch (err: any) {
+
+      const errorMessage =
+        err.response?.data?.message || "Failed to leave the project";
+      return thunkAPI.rejectWithValue(errorMessage);
+    }
+  },
+);
+
+//
 // 🔥 DELETE
 //
 export const deleteProject = createAsyncThunk(
@@ -409,15 +430,26 @@ const projectSlice = createSlice({
       //
       .addCase(fetchCreatedProject.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(fetchCreatedProject.fulfilled, (state, action: any) => {
         state.loading = false;
-        state.createdProjects.projects =
+
+        const projects =
           formatProjectResponse(action.payload.createdProjects.projects) || [];
+
+        // Append if it's a load more, otherwise replace
+        if (action.meta.arg?.skip > 0) {
+          state.createdProjects.projects = [
+            ...state.createdProjects.projects,
+            ...projects,
+          ];
+        } else {
+          state.createdProjects.projects = projects;
+        }
+
         state.createdProjects.totalCount =
           action.payload.createdProjects.totalProjects || 0;
-
-      
       })
       .addCase(fetchCreatedProject.rejected, (state, action: any) => {
         state.loading = false;
@@ -429,13 +461,27 @@ const projectSlice = createSlice({
       //
       .addCase(fetchAssignProjects.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(fetchAssignProjects.fulfilled, (state, action: any) => {
         state.loading = false;
-        state.assignProjects.projects =
+
+        const projects =
           formatProjectResponse(action.payload.assignProjects.projects) || [];
+
+        // Append if it's a load more, otherwise replace
+        if (action.meta.arg?.skip > 0) {
+          state.assignProjects.projects = [
+            ...state.assignProjects.projects,
+            ...projects,
+          ];
+        } else {
+          state.assignProjects.projects = projects;
+        }
+
+        // Note: Changed the fallback here from || [] to || 0 so totalCount stays a number
         state.assignProjects.totalCount =
-          action.payload.assignProjects.totalProjects || [];
+          action.payload.assignProjects.totalProjects || 0;
       })
       .addCase(fetchAssignProjects.rejected, (state, action: any) => {
         state.loading = false;
@@ -610,6 +656,73 @@ const projectSlice = createSlice({
       })
 
       //
+      // 🔥 LEAVE PROJECT
+      //
+      .addCase(leaveProject.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.success = false;
+      })
+      .addCase(leaveProject.fulfilled, (state, action: any) => {
+        state.loading = false;
+        state.success = true;
+
+        const leftProjectId = action.payload.leavedProject?.projectId;
+        if (!leftProjectId) return;
+
+        const remove = (list: any[]) =>
+          list.filter((p) => p.projectId !== leftProjectId);
+
+        state.createdProjects.projects = remove(state.createdProjects.projects);
+        state.assignProjects.projects = remove(state.assignProjects.projects);
+
+        const isLatest = state.dashboard.latestProjects.some(
+          (p) => p.projectId === leftProjectId,
+        );
+
+        state.dashboard.totalProjects = Math.max(
+          0,
+          state.dashboard.totalProjects - 1,
+        );
+
+        if (isLatest) {
+          state.dashboard.latestProjects =
+            state.dashboard.latestProjects.filter(
+              (p) => p.projectId !== leftProjectId,
+            );
+
+          if (state.dashboard.totalProjects >= DEFAULT_RECENT_PROJECT_LIMIT) {
+            const newLatest =
+              state.assignProjects.projects.find(
+                (ap) =>
+                  !state.dashboard.latestProjects.some(
+                    (lp) => lp.projectId === ap.projectId,
+                  ),
+              ) ||
+              state.createdProjects.projects.find(
+                (cp) =>
+                  !state.dashboard.latestProjects.some(
+                    (lp) => lp.projectId === cp.projectId,
+                  ),
+              );
+
+            if (newLatest) {
+              state.dashboard.latestProjects.push(newLatest);
+            }
+          }
+        }
+
+        if (state.singleProject?.projectId === leftProjectId) {
+          state.singleProject = null;
+        }
+      })
+      .addCase(leaveProject.rejected, (state, action: any) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.success = false;
+      })
+
+      //
       // 🔥 DELETE
       //
       .addCase(deleteProject.pending, (state) => {
@@ -681,7 +794,6 @@ const projectSlice = createSlice({
         state.dashboard.projectError = null;
       })
       .addCase(fetchDashboardProjects.fulfilled, (state, action: any) => {
-   
         state.dashboard.projectLoading = false;
         state.dashboard.totalProjects = action.payload.totalProjects;
         state.dashboard.latestProjects = formatDashBoardProjectResponse(

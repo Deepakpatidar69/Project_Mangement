@@ -14,8 +14,7 @@ function pickAndUploadAvatar(asset?: {
 }): void {
   // eslint-disable-next-line no-console
   console.log("pickAndUploadAvatar called with:", asset);
-  // TODO: upload `asset` to your storage/CDN, then update profileImgUrl
-  // via your normal update flow once the upload resolves.
+
 }
 
 // ─────────────────────────────────────────────────────────────────────────

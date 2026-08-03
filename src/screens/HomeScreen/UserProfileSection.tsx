@@ -647,8 +647,8 @@ function UserProfileSection({
       iconColor: "coolGray.500",
     },
     {
-      label: "Tasks Completed",
-      value: user.stats?.completedTasks ?? 0,
+      label: "Tasks",
+      value: user.stats?.totalTasks ?? 0,
       icon: "checkmark-circle-outline",
       bg: "green.50",
       iconColor: "coolGray.500",

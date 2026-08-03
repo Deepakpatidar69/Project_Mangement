@@ -16,8 +16,11 @@ interface CommonDetailHeaderProps {
   showEdit?: boolean;
   fs: number;
   showMenuBar?: boolean;
-  isEditButtonDisable ?: boolean;
+  isEditButtonDisable?: boolean;
   menuOption?: MenuOption[];
+  // New props for Leave Project
+  showLeaveButton?: boolean;
+  onTapLeaveButton?: () => void;
 }
 
 export function CommonDetailHeader({
@@ -30,6 +33,8 @@ export function CommonDetailHeader({
   showMenuBar = true,
   menuOption,
   isEditButtonDisable = false,
+  showLeaveButton = false, // Default is false
+  onTapLeaveButton,
 }: CommonDetailHeaderProps) {
   const { containerDimensions, onLayout } = useContainerDimensions();
   const [, setGlobalMenu] = useAtom(globalMenuAtom);
@@ -97,24 +102,46 @@ export function CommonDetailHeader({
             ) : null}
           </VStack>
 
-          {/* Actions (Edit & Menu) */}
-          <HStack space={2}>
+          {/* Actions (Leave, Edit & Menu) */}
+          <HStack space={2} alignItems="center">
+            {/* Leave Project Button */}
+            {showLeaveButton && (
+              <Pressable
+                alignItems="center"
+                justifyContent="center"
+                onPress={onTapLeaveButton}
+                w={adjustSizeToResolveZoomInIssue(fs * 0.1)}
+                h={adjustSizeToResolveZoomInIssue(fs * 0.1)}
+              >
+                <Icon
+                  as={MaterialCommunityIcons}
+                  name="logout" // Great icon for leaving/exiting
+                  size={adjustSizeToResolveZoomInIssue(fs * 0.08)}
+                  color="error.500" // Red color to denote leaving/destructive action
+                />
+              </Pressable>
+            )}
+
+            {/* Edit Button */}
             {showEdit && (
               <Pressable
-              isDisabled={isEditButtonDisable}
+                isDisabled={isEditButtonDisable}
                 alignItems="center"
                 justifyContent="center"
                 onPress={onEdit}
+                w={adjustSizeToResolveZoomInIssue(fs * 0.1)}
+                h={adjustSizeToResolveZoomInIssue(fs * 0.1)}
               >
                 <Icon
                   as={MaterialCommunityIcons}
                   name="pencil-box-multiple"
                   size={adjustSizeToResolveZoomInIssue(fs * 0.1)}
-                  color={isEditButtonDisable ? "coolGray.200" :"indigo.500"}
+                  color={isEditButtonDisable ? "coolGray.200" : "indigo.500"}
                 />
               </Pressable>
             )}
 
+            {/* Menu Bar */}
             {showMenuBar && (menuOption?.length || 0) > 0 && (
               <View ref={triggerRef}>
                 <Pressable

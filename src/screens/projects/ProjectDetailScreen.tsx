@@ -22,7 +22,7 @@ import {
   Divider,
   Center,
 } from "native-base";
-import { RefreshControl } from "react-native"; // <-- 1. Import RefreshControl
+import { RefreshControl } from "react-native";
 
 import { RootState, AppDispatch } from "../../store";
 import { RouteStackParamStack } from "../../appNavigator/navigator.utils";
@@ -44,6 +44,7 @@ import {
   onTapDeleteButton,
   onTapMarkComplete,
   onTapUpdatePriority,
+  onTapLeaveProject,
 } from "../../modals/model.utils";
 import RecentMessages from "../../components/DisplayRecentMessage";
 import UpdateProject from "./UpdateProject";
@@ -109,15 +110,11 @@ export default function ProjectDetailScreen({ route }: any) {
   const setErrorModal = useSetAtom(isDisplayErrorMessageAtom);
 
   // ─── Refresh Logic ───────────────────────────────────────────────────────
-  // 2. Setup states for pulling to refresh
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // 3. Create the refresh handler
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-
-    // Re-fetch the project and task data via Redux
     dispatch(fetchProjectById(projectId));
     dispatch(
       fetchTaskForProject({
@@ -127,12 +124,12 @@ export default function ProjectDetailScreen({ route }: any) {
       }),
     );
 
-    // Increment key to remount child components so they fetch their data independently
     setTimeout(() => {
       setRefreshKey((prevKey) => prevKey + 1);
       setRefreshing(false);
     }, 1000);
   }, [dispatch, projectId]);
+
   // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -143,14 +140,12 @@ export default function ProjectDetailScreen({ route }: any) {
     }
   }, [loading, taskLoading, containerDimensions.baseSize, setDisplayAppLoader]);
 
-  // Failsafe cleanup for loader
   useEffect(() => {
     return () => {
       setDisplayAppLoader({ isLoading: false, message: "" });
     };
   }, [setDisplayAppLoader]);
 
-  // ── Show global error modal whenever the slice reports a project error ────────
   useEffect(() => {
     if (!projectError) return;
 
@@ -213,12 +208,22 @@ export default function ProjectDetailScreen({ route }: any) {
 
   const onClickDeleteProject = async () => {
     if (!project) return;
-
     await onTapDeleteButton({
       type: "PROJECT",
       projectId: project.projectId,
       onSuccess: () => {
         navigation.goBack();
+      },
+    });
+  };
+
+  // 2. Added Handler for leaving the project
+  const onClickLeaveProjectHandler = async () => {
+    if (!project) return;
+    await onTapLeaveProject({
+      projectId: project.projectId,
+      onSuccess: () => {
+        navigation.goBack(); // Send the user back after leaving
       },
     });
   };
@@ -327,6 +332,9 @@ export default function ProjectDetailScreen({ route }: any) {
         fs={baseSize}
         showMenuBar={isAdmin}
         menuOption={projectMenuOption}
+        // 3. Setup the props for the non-admin Leave button
+        showLeaveButton={!isAdmin}
+        onTapLeaveButton={onClickLeaveProjectHandler}
       />
 
       <KeyboardAwareScrollView
@@ -338,12 +346,10 @@ export default function ProjectDetailScreen({ route }: any) {
           paddingBottom: containerDimensions.height * 0.05,
           paddingHorizontal: "4%",
         }}
-        // 4. Attach RefreshControl here
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* 5. Wrap everything in a VStack with a key to force complete remounts */}
         <VStack width="100%" key={`project-content-${refreshKey}`}>
           {/* ══════════════════════════════════════════
                  SECTION 1 — Project Hero Card
@@ -811,7 +817,6 @@ export default function ProjectDetailScreen({ route }: any) {
                 iconColor: "indigo.500",
                 label: "Messages",
                 onPress: () => {
-                  console.log(`Create Messages is Call`);
                   onHandleClickMessageButton();
                 },
                 show: true,
@@ -925,7 +930,6 @@ export default function ProjectDetailScreen({ route }: any) {
                       navigation.navigate("TaskDetail", {
                         taskId: task.taskId,
                         projectId: project.projectId,
-
                       })
                     }
                   >

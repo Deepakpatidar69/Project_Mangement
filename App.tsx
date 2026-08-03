@@ -11,8 +11,8 @@ import {
   subscribeToAuthState,
 } from "./src/authentation/googleSignIn.utils";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { API_BASE_URL } from "@env";
 import { Text, TextInput } from "react-native";
+import { useHideHardwareNavigationButton } from "./src/hooks/useHideNavigation";
 
 /**
  * ✅ REAL FIX for device font-scaling
@@ -55,9 +55,6 @@ const disableFontScalingGlobally = () => {
 
 disableFontScalingGlobally();
 
-// NativeBase Failsafes
-// ✅ FIX: Moved from `baseStyle` to `defaultProps`.
-// Native props like allowFontScaling only get passed down via defaultProps.
 const customTheme = extendTheme({
   components: {
     Text: {
@@ -84,11 +81,11 @@ const customTheme = extendTheme({
 export default function App() {
   useNetworkManager();
 
+  useHideHardwareNavigationButton();
+
   useEffect(() => {
     configureGoogleSignIn();
-
-    const unsubscribe = subscribeToAuthState((currentUser: any) => {
-  
+    const unsubscribe = subscribeToAuthState((currentUser: any) => {  
     });
 
     return () => unsubscribe();

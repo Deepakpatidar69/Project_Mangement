@@ -587,7 +587,7 @@ export const EditProfileSection = ({
                   onChangeText={(v) => setField("phone", v)}
                   scale={scale}
                   keyboardType="phone-pad"
-                  placeholder="+91 98765 43210"
+                  placeholder="+91 1234567890"
                 />
 
                 <FormControl>

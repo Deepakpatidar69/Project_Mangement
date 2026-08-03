@@ -27,8 +27,8 @@ export const TOKEN_KEY = "_@token";
 export const atomStore = getDefaultStore();
 
 // export const API_BASE_URL = "https://project-management-backend-l5q5.onrender.com/api";
-// export const API_BASE_URL = "http://10.105.123.163:5000/api";
-
+// export const API_BASE_URL = "http://10.151.154.163:5000/api";  // TODO :: change this one
+ 
 export const DEFAULT_OTP_RESEND_SECONDS = 30;
 
 export const API_RESOLVE_TIME_LIMIT = 60000;

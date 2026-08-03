@@ -1,21 +1,16 @@
 import React, { useEffect } from "react";
-import {
-  Box,
-  HStack,
-  VStack,
-  Text,
-  Icon,
-  Avatar,
-  Pressable,
-} from "native-base";
-import { Ionicons } from "@expo/vector-icons";
+import { Box, HStack, VStack, Icon, Avatar, Pressable, View } from "native-base";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { FlatList } from "react-native";
+import { FlatList, Text } from "react-native";
 import { useSetAtom } from "jotai";
 import { AppDispatch, RootState } from "../../store";
-import {  clearTaskError, fetchDashboardTasks } from "../../store/slices/TaskSlice";
+import {
+  clearTaskError,
+  fetchDashboardTasks,
+} from "../../store/slices/TaskSlice";
 import { RouteStackParamStack } from "../../appNavigator/navigator.utils";
 import { useContainerDimensions } from "../../hooks/OnlayoutHooks";
 import {
@@ -106,9 +101,11 @@ function TaskRow({
             {/* ── Title + updated ── */}
             <VStack flex={1} space={"0.5%"}>
               <Text
-                fontSize={fontSize.title}
-                fontWeight={"500"}
-                color={isComplete ? "coolGray.400" : "coolGray.800"}
+                style={{
+                  fontSize: fontSize.title,
+                  fontWeight: "500",
+                  color: isComplete ? "coolGray.400" : "coolGray.800",
+                }}
                 numberOfLines={1}
               >
                 {task.taskHeader}
@@ -120,22 +117,31 @@ function TaskRow({
                   source={avatarUri ? { uri: avatarUri } : undefined}
                 >
                   <Text
-                    fontSize={fontSize.meta * 1.1}
-                    color="white"
-                    fontWeight="700"
+                    style={{
+                      fontSize: fontSize.meta * 1.1,
+                      color: "white",
+                      fontWeight: "700",
+                    }}
                   >
                     {creatorInitial}
                   </Text>
                 </Avatar>
                 <VStack>
                   <Text
-                    fontSize={fontSize.meta}
-                    fontWeight="600"
-                    color="coolGray.700"
+                    style={{
+                      fontSize: fontSize.meta,
+                      fontWeight: "600",
+                      color: "coolGray.700",
+                    }}
                   >
                     {getShortText(creatorName, 18)}
                   </Text>
-                  <Text fontSize={fontSize.badge} color="coolGray.400">
+                  <Text
+                    style={{
+                      fontSize: fontSize.meta,
+                      color: "coolGray.400",
+                    }}
+                  >
                     {task.userRole}
                   </Text>
                 </VStack>
@@ -152,14 +158,21 @@ function TaskRow({
                 bg={isComplete ? "emerald.50" : "violet.50"}
               >
                 <Text
-                  fontSize={fontSize.badge}
-                  fontWeight={"500"}
-                  color={isComplete ? "emerald.800" : "violet.800"}
+                  style={{
+                    fontSize: fontSize.badge,
+                    fontWeight: "500",
+                    color: isComplete ? "emerald.800" : "violet.800",
+                  }}
                 >
                   {isComplete ? "Completed" : "In progress"}
                 </Text>
               </Box>
-              <Text fontSize={fontSize.meta} color={"coolGray.400"}>
+              <Text
+                style={{
+                  fontSize: fontSize.meta,
+                  color: "coolGray.400",
+                }}
+              >
                 {getRelativeDate(task.createdAt)}
               </Text>
             </VStack>
@@ -203,7 +216,7 @@ export const RecentTaskSection = ({
   };
 
   useEffect(() => {
-     dispatch(fetchDashboardTasks());
+    dispatch(fetchDashboardTasks());
   }, [dispatch]);
 
   // ── Show global error modal whenever the slice reports a task error ────────
@@ -221,7 +234,7 @@ export const RecentTaskSection = ({
             "Unable to fetch tasks. Please try again."),
       onClickLeftButton: () => {
         dispatch(clearTaskError());
-       navigation.canGoBack() && navigation.goBack?.();
+        navigation.canGoBack() && navigation.goBack?.();
       },
     }));
   }, [taskError, setErrorModal, navigation]);
@@ -245,19 +258,36 @@ export const RecentTaskSection = ({
 
   // ── Empty state ─────────────────────────────────────────────────────────────
   const ListEmptyComponent = () => (
-    <Box
-      bg={"white"}
-      borderRadius={16}
-      borderWidth={1}
-      borderColor={"coolGray.100"}
-      borderStyle={"dashed"}
-      py={8}
-      alignItems={"center"}
+    <View
+      style={{
+        width: containerDimensions.width || 300,
+        paddingVertical: 32,
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+        borderStyle: "dashed",
+      }}
     >
-      <Text fontSize={fontSize.meta * 1.2} color={"coolGray.400"} mb={3}>
+      <FontAwesome
+        name="tasks"
+        size={adjustSizeToResolveZoomInIssue(
+          containerDimensions.baseSize * 0.12,
+        )}
+        color="#d1d5db"
+        style={{ marginBottom: 12 }}
+      />
+      <Text
+        style={{
+          fontSize: adjustSizeToResolveZoomInIssue(fontSize.meta * 1.2),
+          color: "#9ca3af",
+          marginBottom: 16,
+        }}
+      >
         No tasks found.
       </Text>
-
       <Pressable
         onPress={() =>
           navigation.navigate("CreateTaskScreen", {
@@ -274,11 +304,17 @@ export const RecentTaskSection = ({
           style: { transform: [{ scale: 0.9 }] },
         }}
       >
-        <Text fontSize={fontSize.meta * 1.5} color={"white"} fontWeight={"600"}>
+        <Text
+          style={{
+            color: "#fff",
+            fontSize: adjustSizeToResolveZoomInIssue(fontSize.meta * 1.5),
+            fontWeight: "700",
+          }}
+        >
           + Create New Task
         </Text>
       </Pressable>
-    </Box>
+    </View>
   );
 
   return (
@@ -292,17 +328,21 @@ export const RecentTaskSection = ({
             alignItems={"center"}
           >
             <Text
-              fontSize={fontSize.header}
-              fontWeight={"700"}
-              color={"coolGray.800"}
+              style={{
+                fontSize: fontSize.header,
+                fontWeight: "700",
+                color: "coolGray.800",
+              }}
             >
               Recent Tasks
             </Text>
             <Pressable onPress={onTapViewAllTasks}>
               <Text
-                fontSize={fontSize.header * 0.85}
-                color={"violet.600"}
-                fontWeight={"500"}
+                style={{
+                  fontSize: fontSize.header * 0.85,
+                  color: "violet.600",
+                  fontWeight: "500",
+                }}
               >
                 View All
               </Text>
@@ -325,11 +365,7 @@ export const RecentTaskSection = ({
               )}
               alignItems={"center"}
             >
-              <AppLoader
-                isLoading
-                fullScreen={false}
-                message="tasks loading"
-              />
+              <AppLoader isLoading fullScreen={false} message="tasks loading" />
             </Box>
           ) : (
             <Box

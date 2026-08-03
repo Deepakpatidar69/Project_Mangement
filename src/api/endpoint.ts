@@ -1,8 +1,5 @@
 import { API_BASE_URL } from "@env";
 
-// import { API_BASE_URL } from "../utils/Constent";
-
-
 
 export const API_ENDPOINTS = {
   // VERIFY URL
@@ -109,6 +106,8 @@ export const API_ENDPOINTS = {
     `${API_BASE_URL}/project/${projectId}/update-project-deadline`,
   UPDATE_PROJECT_PRIORITY: (projectId: string) =>
     `${API_BASE_URL}/project/${projectId}/update-project-priority`,
+  LEAVE_PROJECT: (projectId: string) =>
+    `${API_BASE_URL}/project/${projectId}/leave`,
   DELETE_PROJECT: (projectId: string) =>
     `${API_BASE_URL}/project/${projectId}/delete-project`,
 
@@ -187,9 +186,6 @@ export const API_ENDPOINTS = {
 
   REMOVE_MEMBER: (memberId: string, projectId: string) =>
     `${API_BASE_URL}/member/${memberId}/${projectId}/remove-member`,
-
-  LEAVE_PROJECT: (projectId: string) =>
-    `${API_BASE_URL}/member/${projectId}/leave-project`,
 
   /**
    *

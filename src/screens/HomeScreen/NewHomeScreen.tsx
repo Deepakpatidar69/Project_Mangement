@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text, View, Pressable } from "native-base";
+import { BackHandler } from "react-native"; // <-- 1. Import BackHandler
 import HomeScreenNavigation from "../../appNavigator/HomeScreenNavigation";
 import { useContainerDimensions } from "../../hooks/OnlayoutHooks";
 import {
@@ -20,26 +21,23 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import ProjectList from "../projects/ProjectLists";
 import { AuthProps } from "../../store/slices/types";
 import { clearAuthError } from "../../store/slices/authSlice";
-import { isDisplayErrorMessageAtom } from "../../utils/Constent"; // adjust path to where you defined this atom
+import { isDisplayErrorMessageAtom } from "../../utils/Constent";
 import UserProfile from "./ProfileScreen";
 import { onLogoutUser } from "../auth/auth.utils";
 import { useHideHardwareNavigationButton } from "../../hooks/useHideNavigation";
 
 export default function NewHomeScreen() {
   const dispatch = useDispatch<AppDispatch>();
-
   const { containerDimensions, onLayout } = useContainerDimensions();
-
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
 
-        useHideHardwareNavigationButton();
-
+  useHideHardwareNavigationButton();
 
   const { user, error } = useSelector((state: RootState) => state.auth);
   const loginUser = user as AuthProps | null;
 
-  // Global error modal state (read + write, since this is the page that renders it)
+  // Global error modal state
   const [errorModal, setErrorModal] = useAtom(isDisplayErrorMessageAtom);
 
   const [navigationComponentSize, setNavigationComponentSize] = useState<{
@@ -50,7 +48,7 @@ export default function NewHomeScreen() {
   const [currentScreen, setScreenName] =
     useState<SCREEN_TYPE>("DASHBOARD_SCREEN");
 
-  // Track which screens have been mounted so we don't unmount them later (preserves state)
+  // Track which screens have been mounted so we don't unmount them later
   const [visitedScreens, setVisitedScreens] = useState<SCREEN_TYPE[]>([
     "DASHBOARD_SCREEN",
   ]);
@@ -77,13 +75,33 @@ export default function NewHomeScreen() {
     }
   };
 
+  // ── 2. Add Hardware Back Button Listener ──────────────────────────────────
+  useEffect(() => {
+    const handleBackPress = () => {
+      // If we are NOT on the Dashboard, go back to Dashboard and prevent default behavior
+      if (currentScreen !== "DASHBOARD_SCREEN") {
+        onChangeScreen("DASHBOARD_SCREEN");
+        return true;
+      }
+      // If we ARE on the Dashboard, let Android do its default behavior (e.g., exit app)
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      handleBackPress,
+    );
+
+    return () => backHandler.remove();
+  }, [currentScreen, visitedScreens]);
+  // ─────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (containerDimensions.baseSize == 0) return;
 
     const navigatiopnCompoHeight = adjustSizeToResolveZoomInIssue(
       containerDimensions.height * 0.1,
     );
-
     const navigatiopnCompoWidth = containerDimensions.width;
 
     setNavigationComponentSize({
@@ -92,7 +110,6 @@ export default function NewHomeScreen() {
     });
   }, [containerDimensions]);
 
-  // ── Show the same global error modal for auth errors (e.g. session issues) ─
   useEffect(() => {
     if (!error.loadUserError) return;
 
@@ -111,7 +128,6 @@ export default function NewHomeScreen() {
     }));
   }, [error, setErrorModal]);
 
-
   return (
     <View width={"100%"} height={"100%"} bg={"#F8F8FA"}>
       <Box width={"100%"} height={"100%"} onLayout={onLayout}>
@@ -122,8 +138,7 @@ export default function NewHomeScreen() {
             height={containerDimensions.height}
             bg={"#F8F8FA"}
           >
-
-            {/* DASHBOARD SCREEN - Renders only if visited, hides if not active */}
+            {/* DASHBOARD SCREEN */}
             {visitedScreens.includes("DASHBOARD_SCREEN") && (
               <Box
                 display={currentScreen === "DASHBOARD_SCREEN" ? "flex" : "none"}
@@ -142,7 +157,7 @@ export default function NewHomeScreen() {
               </Box>
             )}
 
-            {/* TASK LIST SCREEN - Renders only if visited, hides if not active */}
+            {/* TASK LIST SCREEN */}
             {visitedScreens.includes("PRIVATE_TASK_SCREEN") && (
               <Box
                 display={
@@ -158,7 +173,7 @@ export default function NewHomeScreen() {
               </Box>
             )}
 
-            {/* PROJECT LIST SCREEN - Renders only if visited, hides if not active */}
+            {/* PROJECT LIST SCREEN */}
             {visitedScreens.includes("PROJECT_SCREEN") && (
               <Box
                 display={currentScreen === "PROJECT_SCREEN" ? "flex" : "none"}
@@ -171,7 +186,7 @@ export default function NewHomeScreen() {
               </Box>
             )}
 
-            {/* User Profile SCREEN - Renders only if visited, hides if not active */}
+            {/* User Profile SCREEN */}
             {visitedScreens.includes("PROFILE_SCREEN") && (
               <Box
                 display={currentScreen === "PROFILE_SCREEN" ? "flex" : "none"}

@@ -194,7 +194,6 @@ const RecentMessages = ({
         message: messageText,
         type: type === "PROJECT_TASK" ? "TASK" : type,
         taskId: taskId,
-        projectId: projectId,
       });
       setMessageText("");
       Keyboard.dismiss();
