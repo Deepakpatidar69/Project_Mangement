@@ -19,7 +19,6 @@ import { commonModalProps } from "../modals/CommonModel";
 import { UpdateDeadlineModalProps } from "../modals/UpdateDeadlineModal";
 import { UpdatePriorityModalProps } from "../modals/UpdatePriorityModal";
 import { UpdateRoleModalProps } from "../modals/UpdateMemberRole";
-import { MemberRole } from "../store/slices/types";
 import { AddMemberModalProps } from "../modals/AddMemberModal";
 
 export const TOKEN_KEY = "_@token";
@@ -44,7 +43,7 @@ export const DEFAULT_RECENT_MESSAGE_LIMIT = 3;
 export const DEFAULT_MESSAGE_LIMIT_ON_MESSAGE_SCREEN = 10;
 
 export const DEFAULT_MEMBERS_LIMIT_ON_PROJECT_SCREEN = 3;
-export const DEFAULT_MEMBERS_LIMIT_ON_MEMBERSLIST = 10;
+export const DEFAULT_MEMBERS_LIMIT_ON_MEMBERSLIST = 3;
 
 export const initialNavigationUrlAtom = atom<NavigatorEnum>(
   NavigatorEnum.Auth_Screen,

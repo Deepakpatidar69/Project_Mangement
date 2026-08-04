@@ -181,12 +181,14 @@ export const getProjectMenuOptions = ({
 };
 
 export const getTaskMenuOptions = ({
-  isCompleted = false,
+  isTaskCompleted = false,
+  isProjectCompleted = false,
   onClickDelete,
   onClickMarkComplete,
   onClickUpdate,
 }: {
-  isCompleted?: boolean;
+  isTaskCompleted?: boolean;
+  isProjectCompleted?: boolean;
   onClickUpdate: () => void;
   onClickMarkComplete: () => void;
   onClickDelete: () => void;
@@ -203,18 +205,19 @@ export const getTaskMenuOptions = ({
       bgPressedColor: "coolGray.200",
       iconColor: "#374151", // gray-700
       textColor: "#111827", // gray-900
-      isDisable: isCompleted,
+      isDisable: isTaskCompleted,
     },
     {
-      id: isCompleted ? "markIncomplete" : "markCompleted",
-      icon: isCompleted ? "repeat" : "check-circle",
+      id: isTaskCompleted ? "markIncomplete" : "markCompleted",
+      icon: isTaskCompleted ? "repeat" : "check-circle",
       isVisible: true,
-      label: isCompleted ? "Mark as Incomplete" : "Mark as Complete",
+      isDisable: isProjectCompleted,
+      label: isTaskCompleted ? "Mark as Incomplete" : "Mark as Complete",
       onPress: onClickMarkComplete,
-      bgNormalColor: isCompleted ? "orange.50" : "green.50",
-      bgPressedColor: isCompleted ? "orange.100" : "green.100",
-      iconColor: isCompleted ? "#EA580C" : "#16A34A", // orange-600 : green-600
-      textColor: isCompleted ? "#eb612a" : "#15803D", // orange-700 : green-700
+      bgNormalColor: isTaskCompleted ? "orange.50" : "green.50",
+      bgPressedColor: isTaskCompleted ? "orange.100" : "green.100",
+      iconColor: isTaskCompleted ? "#EA580C" : "#16A34A", // orange-600 : green-600
+      textColor: isTaskCompleted ? "#eb612a" : "#15803D", // orange-700 : green-700
     },
     {
       id: "deleteTask",
@@ -222,7 +225,7 @@ export const getTaskMenuOptions = ({
       isVisible: true,
       label: "Delete Task",
       onPress: onClickDelete,
-      isDisable: isCompleted,
+      isDisable: isTaskCompleted,
       bgNormalColor: "red.50",
       bgPressedColor: "red.100",
       iconColor: "#DC2626", // red-600

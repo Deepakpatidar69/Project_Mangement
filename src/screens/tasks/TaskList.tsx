@@ -69,7 +69,6 @@ const TaskList = ({
     error,
   } = useSelector((state: RootState) => state.task);
 
-  console.log(`Totoal Private Tasks: ${totalPrivateTasks}, Fetched: ${privateTasks.length}`);
 
   const { user } = useSelector((state: RootState) => state.auth);
   const navigation =

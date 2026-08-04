@@ -1,25 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Text, HStack, VStack, Pressable, Spinner } from "native-base";
+import { Box, Text, HStack, VStack, Pressable } from "native-base";
 // @ts-ignore
 import { Feather } from "react-native-vector-icons";
-import { FlatList, Dimensions, View, LayoutChangeEvent } from "react-native";
+import { FlatList, LayoutChangeEvent } from "react-native";
 import { useAtom } from "jotai";
 import {
   adjustSizeToResolveZoomInIssue,
   getInsetTop,
 } from "../../utils/Helper";
 import { useContainerDimensions } from "../../hooks/OnlayoutHooks";
-import { ROLE_CONFIG } from "../utils/screen.utils";
 import { MemberProps, ProjectProps } from "../../store/slices/types";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../store";
+import { clearMemberError, fetchMembers } from "../../store/slices/MemberSlice";
 import {
-  clearMemberError,
-  fetchMembers,
-  removeMember,
-} from "../../store/slices/MemberSlice";
-import {
-  DEFAULT_MEMBERS_LIMIT_ON_MEMBERSLIST,
   globalMenuAtom,
   isDisplayErrorMessageAtom,
 } from "../../utils/Constent";
@@ -33,7 +27,7 @@ import {
   onTapMemberRoleUpdate,
 } from "../../modals/model.utils";
 import { Ionicons } from "@expo/vector-icons";
-import { onUpdateGlobalStateForProject } from "../../utils/GlobalStateUpdateUtils";
+import { FooterLoadMoreButton } from "../../components/FooterLoadMoreButton";
 
 export interface ProjectMembersListProps {
   project: ProjectProps;
@@ -44,6 +38,8 @@ export interface ProjectMembersListProps {
   backgroundColor?: string;
   isProjectCompleted: boolean;
 }
+
+const PAGE_LIMIT = 3;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -56,9 +52,7 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
   backgroundColor = "#F9FAFB",
   isProjectCompleted = false,
 }) => {
-  const [skip, setSkip] = useState<number>(0);
-
-  const { members, loading, error } = useSelector(
+  const { members, loading, error, totalMembersCount } = useSelector(
     (state: RootState) => state.member,
   );
   const dispatch = useDispatch<AppDispatch>();
@@ -82,6 +76,9 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
   const [headerDim, setHeaderDim] = useState({ height: 0, width: 0 });
   const [skeletonContainerHeight, setSkeletonContainerHeight] = useState(0);
   const prevHeaderDimRef = useRef({ height: 0, width: 0 });
+
+  const pageRef = useRef({ limit: PAGE_LIMIT, skip: 0 });
+  const [page, setPage] = useState(0);
 
   const onHeaderLayout = useCallback((e: LayoutChangeEvent) => {
     const { height, width } = e.nativeEvent.layout;
@@ -108,25 +105,74 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
     };
   }, []);
 
-  const loadMembers = useCallback(async () => {
-    if (!project) return;
-    await dispatch(
+  // ─── INITIAL LOAD ───
+  useEffect(() => {
+    if (!isMountedRef.current || !project) return;
+
+    pageRef.current = { limit: PAGE_LIMIT, skip: 0 };
+    setPage(0);
+    setInitialLoadDone(false);
+
+    const load = async () => {
+      if (!isMountedRef.current) return;
+      await dispatch(
+        fetchMembers({
+          projectId: project.projectId,
+          limit: PAGE_LIMIT,
+          skip: 0,
+        }),
+      );
+      if (isMountedRef.current) setInitialLoadDone(true);
+    };
+
+    load();
+  }, [project, dispatch]);
+
+  // ─── LOAD MORE LISTENER ───
+  useEffect(() => {
+    if (page === 0 || !project) return;
+
+    dispatch(
       fetchMembers({
         projectId: project.projectId,
-        limit: DEFAULT_MEMBERS_LIMIT_ON_MEMBERSLIST,
-        skip: skip,
+        limit: pageRef.current.limit,
+        skip: pageRef.current.skip,
       }),
     );
-    if (isMountedRef.current) setInitialLoadDone(true);
-  }, [project, skip, dispatch]);
+  }, [page, project, dispatch]);
 
-  useEffect(() => {
+  const handleLoadMore = useCallback(() => {
+    if (loading) return;
+    pageRef.current = {
+      limit: pageRef.current.limit,
+      skip: pageRef.current.skip + pageRef.current.limit,
+    };
+    setPage((p) => p + 1);
+  }, [loading]);
+
+  // ─── PULL TO REFRESH ───
+  const onRefresh = useCallback(async () => {
     if (!project) return;
-    setInitialLoadDone(false);
-    loadMembers();
-  }, [project, skip, dispatch]);
+    setIsRefreshing(true);
+    setPage(0);
+    pageRef.current.skip = 0;
 
-  // ─── Show shared error modal whenever the member slice reports an error ───
+    try {
+      await dispatch(
+        fetchMembers({
+          projectId: project.projectId,
+          limit: PAGE_LIMIT,
+          skip: 0,
+        }),
+      );
+    } finally {
+      if (isMountedRef.current) {
+        setIsRefreshing(false);
+      }
+    }
+  }, [project, dispatch]);
+
+  // ─── MODALS & ACTIONS ───
   useEffect(() => {
     if (!error) return;
 
@@ -140,12 +186,10 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
           : "We couldn't load the members list. Please try again.",
       onClickLeftButton: () => {
         dispatch(clearMemberError());
-        navigation.back?.();
       },
     }));
-  }, [error, setErrorModal, loadMembers]);
+  }, [error, setErrorModal, dispatch]);
 
-  // ─── Make sure the modal doesn't linger after this screen unmounts ───
   useEffect(() => {
     return () => {
       setErrorModal((prev) => ({ ...prev, isDisplay: false }));
@@ -157,61 +201,84 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
   const closeGlobalMenu = () =>
     setGlobalMenu((prev: any) => ({ ...prev, isOpen: false }));
 
-  const onUpdateRole = async (item: MemberProps) => {
+  // ✅ 1. Memoized Role Update
+  const onUpdateRole = useCallback(async (item: MemberProps) => {
     await onTapMemberRoleUpdate({
       currentRole: item.role,
       memberId: item.memberId,
       projectId: item.projectId,
     });
-  };
+  }, []);
 
-  const onRefresh = useCallback(async () => {
-    if (!project) return;
-    setIsRefreshing(true);
-    setSkip(0);
+  // ✅ 2. Memoized Render Item to prevent massive re-renders
+  const renderMember = useCallback(
+    ({ item }: { item: MemberProps }) => {
+      const isCurrentUser = item.assignedMemberId === currentUserId;
 
-    try {
-      await dispatch(
-        fetchMembers({
-          projectId: project.projectId,
-          limit: DEFAULT_MEMBERS_LIMIT_ON_MEMBERSLIST,
-          skip: 0,
-        }),
+      return (
+        <MemberCard
+          item={item}
+          baseSize={baseSize}
+          meta={meta}
+          subTitleSize={subTitleSize}
+          avatarSize={avatarSize}
+          isAdmin={isAdmin}
+          isCurrentUser={isCurrentUser}
+          setGlobalMenu={setGlobalMenu}
+          onUpdateRole={onUpdateRole}
+          onRemoveUser={handleRemoveMember}
+          isProjectCompleted={isProjectCompleted}
+        />
       );
-    } finally {
-      if (isMountedRef.current) {
-        setIsRefreshing(false);
-      }
-    }
-  }, [project, dispatch]);
+    },
+    [
+      baseSize,
+      meta,
+      subTitleSize,
+      avatarSize,
+      isAdmin,
+      currentUserId,
+      setGlobalMenu,
+      onUpdateRole,
+      isProjectCompleted,
+    ],
+  );
 
-  const renderMember = ({ item }: { item: MemberProps }) => {
-    const isCurrentUser = item.assignedMemberId === currentUserId;
+  // ✅ 3. Stable separator (Replaces buggy rowGap: "8%")
+  const renderSeparator = useCallback(
+    () => <Box height={adjustSizeToResolveZoomInIssue(baseSize * 0.04)} />,
+    [baseSize],
+  );
 
-    console.log(`Is Member Admin is :: ${isAdmin}`);
+  const actualMembersCount = totalMembersCount ?? project?.membersCount ?? 0;
 
-    return (
-      <MemberCard
-        item={item}
-        baseSize={baseSize}
-        meta={meta}
-        subTitleSize={subTitleSize}
-        avatarSize={avatarSize}
-        isAdmin={isAdmin}
-        isCurrentUser={isCurrentUser}
-        setGlobalMenu={setGlobalMenu}
-        onUpdateRole={onUpdateRole}
-        onRemoveUser={handleRemoveMember}
-        isProjectCompleted={isProjectCompleted}
+  // ✅ 4. Memoized Footer to stop it from flashing/unmounting
+  const renderFooter = useCallback(
+    () => (
+      <FooterLoadMoreButton
+        currentCount={members?.length || 0}
+        fontSize={adjustSizeToResolveZoomInIssue(baseSize * 0.04)}
+        isLoading={loading && page > 0}
+        onLoadMore={handleLoadMore}
+        totalCount={actualMembersCount}
+        type="Member"
       />
-    );
-  };
+    ),
+    [
+      members?.length,
+      baseSize,
+      loading,
+      page,
+      handleLoadMore,
+      actualMembersCount,
+    ],
+  );
 
   const showInitialSkeleton =
     (!initialLoadDone && !isRefreshing) ||
-    (loading && skip === 0 && !isRefreshing);
+    (loading && page === 0 && !isRefreshing);
 
-  const isCompleted = project.status;
+  const isCompleted = project?.status;
 
   if (error || !project) return <Box flex={1} bg={backgroundColor} />;
 
@@ -231,6 +298,7 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
               shadow={2}
               onLayout={onHeaderLayout}
             >
+              {/* Header Implementation stays exactly the same */}
               <HStack
                 width="100%"
                 justifyContent="space-between"
@@ -251,9 +319,7 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
                   justifyContent="center"
                   _pressed={{
                     bg: "coolGray.200",
-                    style: {
-                      transform: [{ scale: 0.9 }],
-                    },
+                    style: { transform: [{ scale: 0.9 }] },
                   }}
                 >
                   <Feather
@@ -262,6 +328,7 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
                     color="#374151"
                   />
                 </Pressable>
+
                 {isAdmin && (
                   <Box
                     position={"absolute"}
@@ -270,7 +337,6 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
                     flexDirection={"row"}
                     alignItems={"center"}
                   >
-                    {/* ─── ADD TASK BUTTON ─── */}
                     <Pressable
                       onPress={onAddMember}
                       p={"4%"}
@@ -288,9 +354,7 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
                       }
                       _pressed={{
                         bgColor: "#372deb",
-                        style: {
-                          transform: [{ scale: 0.85 }],
-                        },
+                        style: { transform: [{ scale: 0.85 }] },
                       }}
                     >
                       {isCompleted ? (
@@ -349,7 +413,7 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
               <HStack width="100%" mt="4%" mb="2%" alignItems="center">
                 <Box bg="indigo.50" px="3%" py="2%" borderRadius="lg">
                   <Text fontSize={meta} fontWeight="bold" color="indigo.600">
-                    {project.membersCount} Members
+                    {actualMembersCount} Members
                   </Text>
                 </Box>
               </HStack>
@@ -383,19 +447,31 @@ const ProjectMembersList: React.FC<ProjectMembersListProps> = ({
                     avatarSize={avatarSize}
                     height={skeletonContainerHeight}
                     width={containerDimensions.width * 0.96}
-                    visibleCount={5}
+                    visibleCount={PAGE_LIMIT}
                   />
                 </Box>
               ) : (
                 <FlatList
                   data={members}
-                  keyExtractor={(item) => item.memberId}
+                  // ✅ 5. Bulletproof key extractor prevents duplicate crashes
+                  keyExtractor={(item, index) => `${item.memberId}-${index}`}
                   renderItem={renderMember}
                   onScroll={closeGlobalMenu}
                   refreshing={isRefreshing}
                   onRefresh={onRefresh}
-                  contentContainerStyle={{ paddingBottom: "5%", rowGap: "8%" }}
                   showsVerticalScrollIndicator={false}
+                  // ✅ 6. Using ItemSeparatorComponent instead of rowGap
+                  ItemSeparatorComponent={renderSeparator}
+                  contentContainerStyle={{
+                    paddingBottom: adjustSizeToResolveZoomInIssue(
+                      baseSize * 0.1,
+                    ),
+                    paddingHorizontal: adjustSizeToResolveZoomInIssue(
+                      baseSize * 0.02,
+                    ),
+                  }}
+                  // ✅ 7. Memoized Footer to preserve scroll UI
+                  ListFooterComponent={renderFooter}
                 />
               )}
             </Box>

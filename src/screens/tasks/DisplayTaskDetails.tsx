@@ -286,10 +286,11 @@ export default function TaskDetailScreen({ route }: any) {
   };
 
   const taskMenuOptions: MenuOption[] = getTaskMenuOptions({
-    isCompleted: isCompleted,
+    isTaskCompleted: isCompleted,
     onClickUpdate: () => setIsDisplayUpdateTask(true),
     onClickDelete: handleDeleteTask,
     onClickMarkComplete: onClickMarkCompleted,
+    ...(isProjectTask ? { isProjectCompleted: project?.status === true } : {})
   });
 
   // ─── Render ──────────────────────────────────────────────────────────────

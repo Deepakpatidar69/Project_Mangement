@@ -1,25 +1,22 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { apiClient } from "../../api/client";
-import { API_ENDPOINTS, fetchStatusType } from "../../api/endpoint";
-import { MemberProps, ProjectProps } from "./types";
+import { API_ENDPOINTS } from "../../api/endpoint";
+import { MemberProps } from "./types";
 import { formatMemberResponse, formatSingleMember } from "../TypeFormatter";
 
 type MemberState = {
   members: MemberProps[];
-
+  totalMembersCount : number;
   loading: boolean;
-
   error: string | null;
-
   success: boolean;
 };
 
 const initialState: MemberState = {
   members: [],
+  totalMembersCount : 0,
   loading: false,
-
   error: null,
-
   success: false,
 };
 
@@ -59,7 +56,7 @@ export const fetchMembers = createAsyncThunk(
         API_ENDPOINTS.FETCH_MEMBERS(projectId, limit, skip),
       );
 
-      return res.data.members;
+      return res.data;
     } catch (err: any) {
       return thunkAPI.rejectWithValue("Fetch failed");
     }
@@ -108,6 +105,7 @@ const memberSlice = createSlice({
       state.error = initialState.error;
       state.loading = initialState.loading;
       state.members = initialState.members;
+      state.totalMembersCount = initialState.totalMembersCount;
       state.success = initialState.success;
     },
 
@@ -134,7 +132,26 @@ const memberSlice = createSlice({
         state.loading = false;
         state.success = true;
 
-        state.members = formatMemberResponse(action.payload); // ✅ FIXED
+        const { members = [], totalMembersCount = 0 } = action.payload;
+        const formattedMembers = formatMemberResponse(members);
+
+        // Check the 'skip' value passed from the frontend dispatch
+        const skip = action.meta.arg.skip || 0;
+
+        if (skip === 0) {
+          // INITIAL LOAD OR REFRESH: Replace the entire array
+          state.members = formattedMembers;
+        } else {
+          // LOAD MORE: Append new members securely (preventing duplicate IDs)
+          const existingIds = new Set(state.members.map((m) => m.memberId));
+          const uniqueNewMembers = formattedMembers.filter(
+            (m: any) => !existingIds.has(m.memberId),
+          );
+
+          state.members = [...state.members, ...uniqueNewMembers];
+        }
+
+        state.totalMembersCount = totalMembersCount;
       })
       .addCase(fetchMembers.rejected, (state, action: any) => {
         state.loading = false;
@@ -153,9 +170,9 @@ const memberSlice = createSlice({
         state.success = true;
 
         state.members.push(formatSingleMember(action.payload.member));
+        state.totalMembersCount += 1;
       })
       .addCase(addMember.rejected, (state, action: any) => {
-
         state.loading = false;
         state.error = action.payload;
         state.success = false;
@@ -198,6 +215,7 @@ const memberSlice = createSlice({
         const removed = action.payload.removedMember;
         if (!removed) return;
 
+        state.totalMembersCount -= 1;
         state.members = state.members.filter(
           (m) => m.memberId !== removed.memberId,
         );
@@ -206,7 +224,7 @@ const memberSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.success = false;
-      })
+      });
 
   },
 });

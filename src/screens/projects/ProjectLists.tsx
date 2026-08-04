@@ -231,7 +231,6 @@ const ProjectList = ({
         onPress={() =>
           navigation.navigate("ProjectDetail", { projectId: item.projectId })
         }
-        onOptionsPress={() => console.log("Options:", item.projectId)}
       />
     ),
     [cardWidth, navigation],

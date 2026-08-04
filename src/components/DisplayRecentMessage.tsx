@@ -97,8 +97,8 @@ const RecentMessages = ({
     taskError,
     projectMessages,
     taskMessages,
-    totalMessageCount,
-    totalTaskCount,
+    totalProjectMessageCount,
+    totalTaskMessageCount,
   } = useSelector((state: RootState) => state.message);
 
   const msgError = type === "TASK" ? taskError : projectError;
@@ -179,12 +179,12 @@ const RecentMessages = ({
   useEffect(() => {
     if (type === "TASK" || type === "PROJECT_TASK") {
       setRecentMessages(taskMessages);
-      setMessageCount(totalTaskCount);
+      setMessageCount(totalTaskMessageCount);
     } else {
       setRecentMessages(projectMessages);
-      setMessageCount(totalMessageCount);
+      setMessageCount(totalProjectMessageCount);
     }
-  }, [taskMessages, projectMessages, totalMessageCount, totalTaskCount, type]);
+  }, [taskMessages, projectMessages, totalTaskMessageCount, totalProjectMessageCount, type]);
 
   const handleSendMessage = async () => {
     if (!messageText.trim() || isCompleted) return;
@@ -194,6 +194,7 @@ const RecentMessages = ({
         message: messageText,
         type: type === "PROJECT_TASK" ? "TASK" : type,
         taskId: taskId,
+        projectId: projectId,
       });
       setMessageText("");
       Keyboard.dismiss();

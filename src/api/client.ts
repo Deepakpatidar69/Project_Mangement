@@ -5,7 +5,7 @@ import { API_BASE_URL } from "@env";
 
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL, // TODO :: get From env file
   timeout: API_RESOLVE_TIME_LIMIT,
 });
 

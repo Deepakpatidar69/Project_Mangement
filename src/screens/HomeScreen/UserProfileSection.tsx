@@ -3,7 +3,6 @@ import {
   Alert,
   Linking,
   RefreshControl,
-  LayoutAnimation,
   UIManager,
   Platform,
 } from "react-native";
@@ -44,7 +43,7 @@ import {
 // Import logout utility
 import { onLogoutUser } from "../auth/auth.utils";
 
-// Enable LayoutAnimation for Android
+// Enable LayoutAnimation for Android (Kept for other potential UI animations)
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -56,7 +55,8 @@ if (
 // Types
 // ─────────────────────────────────────────────────────────────────────────
 
-type ProfileTab = "OVERVIEW" | "ACTIVITY" | "PROJECTS" | "TASKS";
+// ✅ Added "SETTINGS" to ProfileTab
+type ProfileTab = "OVERVIEW" | "ACTIVITY" | "PROJECTS" | "TASKS" | "SETTINGS";
 
 interface Scale {
   fsXs: number;
@@ -96,11 +96,13 @@ interface PieDatum {
   color: string;
 }
 
+// ✅ Added "Settings" to the TABS array
 const TABS: { key: ProfileTab; label: string }[] = [
   { key: "OVERVIEW", label: "Overview" },
   { key: "ACTIVITY", label: "Activity" },
   { key: "PROJECTS", label: "Projects" },
   { key: "TASKS", label: "Tasks" },
+  { key: "SETTINGS", label: "Settings" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -314,7 +316,7 @@ function StatCardGrid({
       {stats.map((stat) => (
         <Box
           key={stat.label}
-          width={type== "parent" ? "30%" : "48%"}
+          width={type == "parent" ? "30%" : "48%"}
           bg={stat.bg}
           borderRadius={scale.cardRadius}
           p={scale.spSm}
@@ -329,18 +331,20 @@ function StatCardGrid({
                 {stat.label}
               </Text>
             </VStack>
-
-
-        <Box position={"absolute"} top={0} right={0}  borderRadius={"full"} bg={stat.bg}>
-
-
-            <Icon
-              as={Ionicons}
-              name={stat.icon}
-              size={scale.iconSm}
-              color={stat.iconColor}
+            <Box
+              position={"absolute"}
+              top={0}
+              right={0}
+              borderRadius={"full"}
+              bg={stat.bg}
+            >
+              <Icon
+                as={Ionicons}
+                name={stat.icon}
+                size={scale.iconSm}
+                color={stat.iconColor}
               />
-              </Box>
+            </Box>
           </HStack>
         </Box>
       ))}
@@ -422,9 +426,6 @@ function UserProfileSection({
   const { containerDimensions, onLayout } = useContainerDimensions();
   const [activeTab, setActiveTab] = useState<ProfileTab>("OVERVIEW");
 
-  // Settings Dropdown State
-  const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
-
   const dispatch = useDispatch<any>();
 
   // State variables for Modal logic
@@ -438,11 +439,6 @@ function UserProfileSection({
   const setDisplayAppLoader = useSetAtom(AppLoaderAtom);
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
-
-  const toggleSettings = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsSettingsExpanded(!isSettingsExpanded);
-  };
 
   const handleChangePassword = () => {
     navigation.navigate("ChangePasswordScreen" as any);
@@ -660,13 +656,6 @@ function UserProfileSection({
       bg: "amber.50",
       iconColor: "coolGray.500",
     },
-    // {
-    //   label: "Comments",
-    //   value: user.stats?.totalComments ?? 0,
-    //   icon: "chatbubble-outline",
-    //   bg: "purple.50",
-    //   iconColor: "coolGray.500",
-    // },
   ];
 
   const projectStatCards: StatCardDef[] = [
@@ -936,7 +925,11 @@ function UserProfileSection({
                   </VStack>
 
                   <Box mt={scale.spMd}>
-                    <StatCardGrid stats={statCards} scale={scale} type={"parent"} />
+                    <StatCardGrid
+                      stats={statCards}
+                      scale={scale}
+                      type={"parent"}
+                    />
                   </Box>
                 </VStack>
               </Box>
@@ -1250,89 +1243,59 @@ function UserProfileSection({
                       </VStack>
                     </Box>
                   )}
+                </VStack>
+              )}
 
-                  {/* ACCOUNT SETTINGS ACCORDION */}
+              {/* ✅ NEW SETTINGS TAB */}
+              {activeTab === "SETTINGS" && (
+                <VStack space={scale.spMd}>
                   <Box
                     bg="white"
                     borderRadius={scale.cardRadius}
-                    overflow="hidden"
+                    p={scale.spMd}
                   >
-                    <Pressable
-                      onPress={toggleSettings}
-                      p={scale.spMd}
-                      _pressed={{ bg: "coolGray.50" }}
+                    <Text
+                      fontSize={scale.fsMd}
+                      fontWeight="700"
+                      color="coolGray.800"
+                      mb={scale.spMd}
                     >
-                      <HStack
-                        justifyContent="space-between"
-                        alignItems="center"
-                      >
-                        <HStack space={scale.spSm} alignItems="center">
-                          <Icon
-                            as={Ionicons}
-                            name="settings-outline"
-                            size={scale.iconMd}
-                            color="coolGray.800"
-                          />
-                          <Text
-                            fontSize={scale.fsMd}
-                            fontWeight="700"
-                            color="coolGray.800"
-                          >
-                            Account Settings
-                          </Text>
-                        </HStack>
-                        <Icon
-                          as={Ionicons}
-                          name={
-                            isSettingsExpanded ? "chevron-up" : "chevron-down"
-                          }
-                          size={scale.iconSm}
-                          color="coolGray.500"
-                        />
-                      </HStack>
-                    </Pressable>
-
-                    {/* EXPANDABLE CONTENT */}
-                    {isSettingsExpanded && (
-                      <VStack
-                        px={scale.spMd}
-                        pb={scale.spMd}
-                        space={scale.spSm}
-                      >
-                        <SettingOption
-                          icon="lock-closed-outline"
-                          label="Change Password"
-                          description="Update your password to keep your account secure."
-                          colorScheme="indigo"
-                          onPress={handleChangePassword}
-                          scale={scale}
-                        />
-                        <SettingOption
-                          icon="swap-horizontal-outline"
-                          label="Transfer Ownership"
-                          description="Transfer your account or project ownership to another user."
-                          colorScheme="indigo"
-                          onPress={handleTransferOwnership}
-                          scale={scale}
-                        />
-                        <SettingOption
-                          icon="log-out-outline"
-                          label="Log Out"
-                          description="Safely sign out of your account on this device."
-                          colorScheme="orange"
-                          onPress={handleLogout}
-                          scale={scale}
-                        />
-                        <SettingOption
-                          icon="trash-outline"
-                          label="Delete Account"
-                          description="Permanently remove your account and data. This cannot be undone."
-                          colorScheme="red"
-                          onPress={handleDeleteAccount}
-                          scale={scale}
-                        />
-                      </VStack>
-                    )}
+                      Account Settings
+                    </Text>
+                    <VStack space={scale.spSm}>
+                      <SettingOption
+                        icon="lock-closed-outline"
+                        label="Change Password"
+                        description="Update your password to keep your account secure."
+                        colorScheme="indigo"
+                        onPress={handleChangePassword}
+                        scale={scale}
+                      />
+                      <SettingOption
+                        icon="swap-horizontal-outline"
+                        label="Transfer Ownership"
+                        description="Transfer your account or project ownership to another user."
+                        colorScheme="indigo"
+                        onPress={handleTransferOwnership}
+                        scale={scale}
+                      />
+                      <SettingOption
+                        icon="log-out-outline"
+                        label="Log Out"
+                        description="Safely sign out of your account on this device."
+                        colorScheme="orange"
+                        onPress={handleLogout}
+                        scale={scale}
+                      />
+                      <SettingOption
+                        icon="trash-outline"
+                        label="Delete Account"
+                        description="Permanently remove your account and data. This cannot be undone."
+                        colorScheme="red"
+                        onPress={handleDeleteAccount}
+                        scale={scale}
+                      />
+                    </VStack>
                   </Box>
                 </VStack>
               )}

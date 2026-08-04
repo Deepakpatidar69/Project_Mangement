@@ -165,10 +165,7 @@ export const AppContainer = ({ children }: AppComponentProps) => {
       messageAtom.isDisplayMessageModal ||
       addMemberAtom.isOpen
     ) {
-      console.log(
-        `the isCommonPopUpDisplay is already displayed :: ${isCommonPopUpDisplay} `,
-      );
-
+    
       return;
     }
 

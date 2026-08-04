@@ -449,7 +449,7 @@ const projectSlice = createSlice({
         }
 
         state.createdProjects.totalCount =
-          action.payload.createdProjects.totalProjects || 0;
+          action.payload.createdProjects.totalProjectsCount || 0;
       })
       .addCase(fetchCreatedProject.rejected, (state, action: any) => {
         state.loading = false;
@@ -481,7 +481,7 @@ const projectSlice = createSlice({
 
         // Note: Changed the fallback here from || [] to || 0 so totalCount stays a number
         state.assignProjects.totalCount =
-          action.payload.assignProjects.totalProjects || 0;
+          action.payload.assignProjects.totalProjectsCount || 0;
       })
       .addCase(fetchAssignProjects.rejected, (state, action: any) => {
         state.loading = false;
@@ -795,7 +795,7 @@ const projectSlice = createSlice({
       })
       .addCase(fetchDashboardProjects.fulfilled, (state, action: any) => {
         state.dashboard.projectLoading = false;
-        state.dashboard.totalProjects = action.payload.totalProjects;
+        state.dashboard.totalProjects = action.payload.totalProjectsCount;
         state.dashboard.latestProjects = formatDashBoardProjectResponse(
           action.payload.latestProjects,
         );

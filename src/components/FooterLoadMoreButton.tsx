@@ -9,7 +9,8 @@ interface LoadMoreButtonProps {
   totalCount: number;
   isLoading: boolean;
   onLoadMore: () => void;
-  type?: "Project" | "Task" | "Message";
+  // ✅ Added "Member" to the allowed types
+  type?: "Project" | "Task" | "Message" | "Member";
   fontSize: number;
 }
 
@@ -21,12 +22,10 @@ export const FooterLoadMoreButton: React.FC<LoadMoreButtonProps> = ({
   onLoadMore,
   type = "Project", // Defaults to "Project" if not provided
 }) => {
-
-
   const hasMore = currentCount < totalCount;
 
   // Plural label for the "no more X" message — lowercase + "s".
-  // Covers Project -> projects, Task -> tasks, Message -> messages.
+  // Covers Project -> projects, Task -> tasks, Message -> messages, Member -> members.
   const pluralLabel = `${type.toLowerCase()}s`;
 
   if (isLoading && currentCount == 0) return null;

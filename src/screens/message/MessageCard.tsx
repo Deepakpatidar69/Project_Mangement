@@ -61,14 +61,22 @@ function getRelativeDate(iso: string): string {
 // authoritative tint; everyone else gets a quiet neutral pill.
 function getRoleBadgeColors(label: string) {
   const normalized = label.toLowerCase();
+
   if (normalized === "creator" || normalized === "admin") {
     return { bg: "amber.50", text: "amber.700" };
   }
   if (normalized === "editor") {
     return { bg: "indigo.50", text: "indigo.600" };
   }
+  if (normalized === "unknown") {
+    // A slightly darker gray for removed/unknown users
+    return { bg: "coolGray.200", text: "coolGray.600" };
+  }
+
+  // Default fallback (e.g., for "Viewer")
   return { bg: "coolGray.100", text: "coolGray.500" };
 }
+
 
 export const MessageCard = ({
   msg,
@@ -90,17 +98,19 @@ export const MessageCard = ({
     : "U";
 
 
-    const getLabelName = (messageType : "PROJECT" | "TASK" | "PROJECT_TASK") => {
-      if(messageType === "PROJECT") {
-        return `${msg.messageSender.userRole?.charAt(0)}${msg.messageSender.userRole?.slice(1).toLowerCase()}`;
-      }
-     else if(messageType === "PROJECT_TASK") {
-        return `${msg.messageSender.userRole?.charAt(0)}${msg.messageSender.userRole?.slice(1).toLowerCase()}`;
-      }else{
-        return  `${"CREATOR"?.charAt(0)}${"CREATOR"?.slice(1).toLowerCase()}`;
-      }
+  const getLabelName = (messageType: "PROJECT" | "TASK" | "PROJECT_TASK") => {
+    const role = msg.messageSender?.userRole;
 
+    // If the user has been removed, their role will be undefined/null
+    if (!role) {
+      // If it's a private task, they are always the Creator by default.
+      // Otherwise, they are an "Unknown" removed member.
+      return messageType === "TASK" ? "Creator" : "Unknown";
     }
+
+    // Capitalize the first letter and make the rest lowercase (e.g., "ADMIN" -> "Admin")
+    return `${role.charAt(0).toUpperCase()}${role.slice(1).toLowerCase()}`;
+  };
 
   const roleLabel = getLabelName(messageType);
 
@@ -209,7 +219,7 @@ export const MessageCard = ({
                   fontWeight="600"
                   color={roleBadge.text}
                 >
-                  {roleLabel}
+                  {roleLabel || "Unknown"}
                 </Text>
               </Box>
             </HStack>

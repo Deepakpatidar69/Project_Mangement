@@ -15,8 +15,8 @@ type MessageState = {
   taskMessages: MessageProps[];
 
   totalDirectCount: number;
-  totalMessageCount: number; // PROJECT-scoped count
-  totalTaskCount: number; // TASK-scoped count
+  totalProjectMessageCount: number; // PROJECT-scoped count
+  totalTaskMessageCount: number; // TASK-scoped count
 
   loading: boolean;
 
@@ -35,8 +35,8 @@ const initialState: MessageState = {
   taskMessages: [],
 
   totalDirectCount: 0,
-  totalMessageCount: 0,
-  totalTaskCount: 0,
+  totalProjectMessageCount: 0,
+  totalTaskMessageCount: 0,
 
   loading: false,
 
@@ -62,7 +62,6 @@ export const sendMessage = createAsyncThunk(
   ) => {
     try {
    
-
       const res = await apiClient.post(API_ENDPOINTS.SEND_MESSAGE, payload);
 
       return res.data.newMessage;
@@ -208,8 +207,8 @@ const messageSlice = createSlice({
       state.loading = initialState.loading;
       state.projectMessages = initialState.projectMessages;
       state.taskMessages = initialState.taskMessages;
-      state.totalMessageCount = initialState.totalMessageCount;
-      state.totalTaskCount = initialState.totalTaskCount;
+      state.totalProjectMessageCount = initialState.totalProjectMessageCount;
+      state.totalTaskMessageCount = initialState.totalTaskMessageCount;
     },
 
     clearMessageError: (state) => {
@@ -219,12 +218,12 @@ const messageSlice = createSlice({
 
     clearTaskMessages : (state) => {
       state.taskMessages = initialState.taskMessages;
-      state.totalTaskCount = initialState.totalTaskCount;
+      state.totalTaskMessageCount = initialState.totalTaskMessageCount;
     },
 
     clearProjectMessages : (state) => {
       state.projectMessages = initialState.projectMessages;
-      state.totalMessageCount = initialState.totalMessageCount;
+      state.totalProjectMessageCount = initialState.totalProjectMessageCount;
     },
   },
   extraReducers: (builder) => {
@@ -240,18 +239,19 @@ const messageSlice = createSlice({
 
         const msg = formatSingleMessage(action.payload);
 
+
         if (!msg) return;
 
         // 🔥 PROJECT
         if (msg.project?.projectId) {
           state.projectMessages.push(msg);
-          state.totalMessageCount += 1;
+          state.totalProjectMessageCount += 1;
         }
 
         // 🔥 TASK
         if (msg.task?.taskId) {
           state.taskMessages.push(msg);
-          state.totalTaskCount += 1;
+          state.totalTaskMessageCount += 1;
         }
 
         // 🔥 DIRECT
@@ -288,7 +288,7 @@ const messageSlice = createSlice({
       .addCase(fetchPrivateMessage.fulfilled, (state, action: any) => {
         state.loading = false;
 
-        const { conversations, totalCount } = action.payload;
+        const { conversations, totalMessageCount } = action.payload;
 
         if (action.meta.arg?.skip > 0) {
           state.directConversations = [
@@ -299,7 +299,7 @@ const messageSlice = createSlice({
           state.directConversations = conversations;
         }
 
-        state.totalDirectCount = totalCount;
+        state.totalDirectCount = totalMessageCount;
       })
       .addCase(fetchPrivateMessage.rejected, (state, action: any) => {
         state.loading = false;
@@ -314,7 +314,7 @@ const messageSlice = createSlice({
       .addCase(fetchProjectMessages.fulfilled, (state, action: any) => {
         state.loading = false;
         state.error = null;
-        const { messages, totalCount } = action.payload;
+        const { messages, totalProjectMessageCount } = action.payload;
 
         if (action.meta.arg?.skip > 0) {
           state.projectMessages = [
@@ -325,7 +325,7 @@ const messageSlice = createSlice({
           state.projectMessages = formatMessageResponse(messages);
         }
 
-        state.totalMessageCount = totalCount;
+        state.totalProjectMessageCount = totalProjectMessageCount;
       })
       .addCase(fetchProjectMessages.rejected, (state, action: any) => {
         state.loading = false;
@@ -341,7 +341,7 @@ const messageSlice = createSlice({
         state.loading = false;
         state.taskError = null;
 
-        const { messages, totalCount } = action.payload;
+        const { messages, totalTaskMessageCount } = action.payload;
 
         if (action.meta.arg?.skip > 0) {
           state.taskMessages = [
@@ -352,7 +352,7 @@ const messageSlice = createSlice({
           state.taskMessages = formatMessageResponse(messages);
         }
 
-        state.totalTaskCount = totalCount;
+        state.totalTaskMessageCount = totalTaskMessageCount;
       })
       .addCase(fetchTaskMessages.rejected, (state, action: any) => {
         state.loading = false;
@@ -420,9 +420,9 @@ const messageSlice = createSlice({
         );
 
         if (inProject) {
-          state.totalMessageCount = Math.max(0, state.totalMessageCount - 1);
+          state.totalProjectMessageCount = Math.max(0, state.totalProjectMessageCount - 1);
         } else if (inTask) {
-          state.totalTaskCount = Math.max(0, state.totalTaskCount - 1);
+          state.totalTaskMessageCount = Math.max(0, state.totalTaskMessageCount - 1);
         }
       })
       .addCase(deleteMessage.rejected, (state, action: any) => {

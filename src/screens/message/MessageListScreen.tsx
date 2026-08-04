@@ -122,13 +122,13 @@ export default function MessageListScreen() {
     taskError,
     projectMessages,
     taskMessages,
-    totalMessageCount,
-    totalTaskCount,
+    totalProjectMessageCount,
+    totalTaskMessageCount,
   } = useSelector((state: RootState) => state.message);
 
   const msgError = isTaskLike ? taskError : projectError;
   const messages = isTaskLike ? taskMessages : projectMessages;
-  const messageCount = isTaskLike ? totalTaskCount : totalMessageCount;
+  const messageCount = isTaskLike ? totalTaskMessageCount : totalProjectMessageCount;
 
   const [messageText, setMessageText] = useState("");
   const [isFocused, setIsFocused] = useState(false);

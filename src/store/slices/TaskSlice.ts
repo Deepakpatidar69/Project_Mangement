@@ -603,7 +603,7 @@ const taskSlice = createSlice({
         state.dashboard.taskLoading = false;
         state.dashboard.latestTasks =
           formatTaskResponse(action.payload.latestTasks) || [];
-        state.dashboard.totalTasks = action.payload.totalTasks || 0;
+        state.dashboard.totalTasks = action.payload.totalTasksCount || 0;
       })
       .addCase(fetchDashboardTasks.rejected, (state, action: any) => {
         state.dashboard.taskLoading = false;
@@ -652,7 +652,7 @@ const taskSlice = createSlice({
       })
       .addCase(fetchTaskForProject.fulfilled, (state, action: any) => {
     
-        const { tasks, totalCount } = action.payload;
+        const { tasks, totalTasksCount } = action.payload;
 
         const formatedTasks = formatTaskResponse(tasks);
 
@@ -667,7 +667,7 @@ const taskSlice = createSlice({
           state.projectTasks.tasks = formatedTasks;
         }
 
-        state.privateTasks.totalTasks = totalCount; // 🔥 IMPORTANT
+        state.privateTasks.totalTasks = totalTasksCount; // 🔥 IMPORTANT
 
         state.loading = false;
         state.success = true;
@@ -710,7 +710,8 @@ const taskSlice = createSlice({
         } else {
           state.privateTasks.tasks = tasks ?? [];
         }
-        state.privateTasks.totalTasks = action.payload.privateTasks.totalTask;
+        state.privateTasks.totalTasks =
+          action.payload.privateTasks.totalTasksCount;
         state.loading = false;
         state.success = true;
       })
