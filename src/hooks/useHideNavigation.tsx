@@ -1,12 +1,10 @@
 import { useEffect, useCallback } from "react";
-import { AppState, Platform, StatusBar } from "react-native";
+import { AppState, Platform, StatusBar, Keyboard } from "react-native";
 import SystemNavigationBar from "react-native-system-navigation-bar";
 
 export function useHideHardwareNavigationButton() {
   const applyHideNavigation = useCallback(async () => {
-    SystemNavigationBar.navigationHide();
     StatusBar.setHidden(true, "none");
-
     if (Platform.OS === "android") {
       try {
         await SystemNavigationBar.stickyImmersive();
@@ -17,21 +15,29 @@ export function useHideHardwareNavigationButton() {
   }, []);
 
   useEffect(() => {
-    // 1. Hide the hardware buttons immediately when the app launches
+    // Hide immediately on app launch
     applyHideNavigation();
 
-    // 2. Re-hide them if the user switches apps and comes back (foreground)
-    const subscription = AppState.addEventListener("change", (state) => {
+    // Re-hide when app comes back from background
+    const appStateSub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        setTimeout(() => {
-          applyHideNavigation();
-        }, 200); // Small delay ensures the OS is ready to accept the command
+        setTimeout(applyHideNavigation, 200);
       }
     });
 
-    // 3. Cleanup the listener
+    // Android kicks the app out of immersive mode when the
+    // keyboard opens — re-apply once it's shown and again once it closes
+    const keyboardShowSub = Keyboard.addListener("keyboardDidShow", () => {
+      setTimeout(applyHideNavigation, 200);
+    });
+    const keyboardHideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setTimeout(applyHideNavigation, 200);
+    });
+
     return () => {
-      subscription.remove();
+      appStateSub.remove();
+      keyboardShowSub.remove();
+      keyboardHideSub.remove();
     };
   }, [applyHideNavigation]);
 }

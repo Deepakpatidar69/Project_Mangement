@@ -17,6 +17,8 @@ import {
 import { getStatus } from "../utils/screen.utils";
 import { Animated } from "react-native";
 import { useScaleAnimation } from "../../hooks/useScaleAnimation";
+import { useSelector } from "react-redux";
+import { RootState } from "../../store";
 
 export interface TaskCardProps {
   task: TaskProps;
@@ -43,6 +45,9 @@ export const TaskCard = ({
   onToggleCheck,
   width,
 }: TaskCardProps) => {
+
+    const { user } = useSelector((state: RootState) => state.auth);
+  
   const basesize = width;
 
   // 1. FIRST HOOK
@@ -64,6 +69,18 @@ export const TaskCard = ({
   const creatorInitial = creatorName.charAt(0).toUpperCase();
   const avatarUri = task.taskCreator?.profileImgUrl;
   const projectStatus = getStatus(task.status, task.taskDeadline);
+
+  const isProjectTask = task.project && task.project.projectId !== undefined;
+
+    const findTaskCreatorRole = () => {
+      if (isProjectTask && task.project) {
+
+        const isAdmin = task.project.admin.userId ===  task.taskCreatorId;
+
+        return isAdmin ? "Admin" : "Editor";
+      }
+      return "Creator";
+    };
 
   // EARLY RETURN - Placed safely after all hooks
   if (basesize <= 0) return null;
@@ -154,7 +171,7 @@ export const TaskCard = ({
                     source={avatarUri ? { uri: avatarUri } : undefined}
                   >
                     <Text fontSize={meta} color="white" fontWeight="700">
-                      {creatorInitial}
+                      {creatorInitial}"yuyu"
                     </Text>
                   </Avatar>
                   <VStack>
@@ -162,7 +179,7 @@ export const TaskCard = ({
                       {getShortText(creatorName, 18)}
                     </Text>
                     <Text fontSize={badge} color="coolGray.400">
-                      {task.userRole}
+                      {findTaskCreatorRole()}
                     </Text>
                   </VStack>
                 </HStack>

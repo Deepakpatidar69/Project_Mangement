@@ -186,6 +186,7 @@ export const getTaskMenuOptions = ({
   onClickDelete,
   onClickMarkComplete,
   onClickUpdate,
+  
 }: {
   isTaskCompleted?: boolean;
   isProjectCompleted?: boolean;

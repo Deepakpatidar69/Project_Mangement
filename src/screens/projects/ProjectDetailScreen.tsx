@@ -923,6 +923,28 @@ export default function ProjectDetailScreen({ route }: any) {
                 const tPriority =
                   PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.MEDIUM;
 
+                // 1. Determine Task Status inline (or use your getStatus function if imported)
+                const isCompleted = task.status === true;
+                const isOverdue =
+                  !isCompleted &&
+                  new Date(task.taskDeadline).getTime() < new Date().getTime();
+
+                const statusText = isCompleted
+                  ? "Completed"
+                  : isOverdue
+                    ? "Overdue"
+                    : "In Progress";
+                const statusColor = isCompleted
+                  ? "emerald.600"
+                  : isOverdue
+                    ? "red.600"
+                    : "blue.600";
+                const statusBg = isCompleted
+                  ? "emerald.100"
+                  : isOverdue
+                    ? "red.100"
+                    : "blue.100";
+
                 return (
                   <Pressable
                     key={task.taskId}
@@ -944,7 +966,7 @@ export default function ProjectDetailScreen({ route }: any) {
                         width={"100%"}
                         opacity={isPressed ? 0.7 : 1}
                       >
-                        {/* Priority flag */}
+                        {/* Priority flag icon */}
                         <Box
                           width={"10%"}
                           justifyContent={"center"}
@@ -958,11 +980,14 @@ export default function ProjectDetailScreen({ route }: any) {
                           />
                         </Box>
 
-                        {/* Task name */}
-                        <Box
+                        {/* Task name & Status Flag (Changed Box to VStack for 2 rows) */}
+                        <VStack
                           width={"36%"}
                           justifyContent={"center"}
                           alignItems={"flex-start"}
+                          space={adjustSizeToResolveZoomInIssue(
+                            baseSize * 0.01,
+                          )}
                         >
                           <Text
                             fontSize={adjustSizeToResolveZoomInIssue(
@@ -975,8 +1000,31 @@ export default function ProjectDetailScreen({ route }: any) {
                           >
                             {task.taskHeader}
                           </Text>
-                        </Box>
 
+                          {/* NEW: Tiny Status Badge */}
+                          <Box
+                            bg={statusBg}
+                            px={adjustSizeToResolveZoomInIssue(
+                              baseSize * 0.015,
+                            )}
+                            py={adjustSizeToResolveZoomInIssue(
+                              baseSize * 0.005,
+                            )}
+                            rounded="sm"
+                          >
+                            <Text
+                              fontSize={adjustSizeToResolveZoomInIssue(
+                                fs.meta * 0.85,
+                              )}
+                              fontWeight="700"
+                              color={statusColor}
+                            >
+                              {statusText}
+                            </Text>
+                          </Box>
+                        </VStack>
+
+                        {/* Date and Priority Info */}
                         <Box
                           width={"30%"}
                           justifyContent={"center"}
@@ -1056,6 +1104,8 @@ export default function ProjectDetailScreen({ route }: any) {
                             </HStack>
                           </VStack>
                         </Box>
+
+                        {/* Navigation Chevron */}
                         <Box
                           width={"10%"}
                           justifyContent={"flex-end"}

@@ -689,7 +689,7 @@ function UserProfileSection({
     },
     {
       label: "Completed",
-      value: user.stats?.completedProjects ?? 0,
+      value: user.stats?.completedAssignProjects ?? 0,
       icon: "checkmark-done-outline",
       bg: "green.50",
       iconColor: "green.600",

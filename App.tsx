@@ -1,5 +1,4 @@
-import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { NativeBaseProvider, extendTheme } from "native-base";
 import { Provider } from "react-redux";
 import { store } from "./src/store";
@@ -11,7 +10,9 @@ import {
   subscribeToAuthState,
 } from "./src/authentation/googleSignIn.utils";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { Text, TextInput } from "react-native";
+import { Text, TextInput, StatusBar } from "react-native";
+import SystemNavigationBar from "react-native-system-navigation-bar";
+import { Platform } from "react-native";
 import { useHideHardwareNavigationButton } from "./src/hooks/useHideNavigation";
 
 /**
@@ -27,7 +28,6 @@ const disableFontScalingGlobally = () => {
       const origin = oldTextRender.call(this, ...args);
       return React.cloneElement(origin, {
         ...origin.props,
-        // MUST come after origin.props to force the override
         allowFontScaling: false,
         maxFontSizeMultiplier: 1,
       });
@@ -44,7 +44,6 @@ const disableFontScalingGlobally = () => {
       const origin = oldInputRender.call(this, ...args);
       return React.cloneElement(origin, {
         ...origin.props,
-        // MUST come after origin.props to force the override for TextInput
         allowFontScaling: false,
         maxFontSizeMultiplier: 1,
       });
@@ -58,22 +57,13 @@ disableFontScalingGlobally();
 const customTheme = extendTheme({
   components: {
     Text: {
-      defaultProps: {
-        allowFontScaling: false,
-        maxFontSizeMultiplier: 1,
-      },
+      defaultProps: { allowFontScaling: false, maxFontSizeMultiplier: 1 },
     },
     Heading: {
-      defaultProps: {
-        allowFontScaling: false,
-        maxFontSizeMultiplier: 1,
-      },
+      defaultProps: { allowFontScaling: false, maxFontSizeMultiplier: 1 },
     },
     Input: {
-      defaultProps: {
-        allowFontScaling: false,
-        maxFontSizeMultiplier: 1,
-      },
+      defaultProps: { allowFontScaling: false, maxFontSizeMultiplier: 1 },
     },
   },
 });
@@ -81,13 +71,23 @@ const customTheme = extendTheme({
 export default function App() {
   useNetworkManager();
 
+  // ✅ Single global call — handles launch, app-foreground, and keyboard events
   useHideHardwareNavigationButton();
+
+  const reapplyHideNav = async () => {
+    StatusBar.setHidden(true, "none");
+    if (Platform.OS === "android") {
+      try {
+        await SystemNavigationBar.stickyImmersive();
+      } catch (error) {
+        console.log("Error setting immersive mode on nav change:", error);
+      }
+    }
+  };
 
   useEffect(() => {
     configureGoogleSignIn();
-    const unsubscribe = subscribeToAuthState((currentUser: any) => {  
-    });
-
+    const unsubscribe = subscribeToAuthState((currentUser: any) => {});
     return () => unsubscribe();
   }, []);
 
@@ -96,9 +96,9 @@ export default function App() {
       <KeyboardProvider>
         <NativeBaseProvider theme={customTheme}>
           <AppContainer>
-            <ApplicationNavigation />
+
+            <ApplicationNavigation onNavigationStateChange={reapplyHideNav} />
           </AppContainer>
-          <StatusBar hidden />
         </NativeBaseProvider>
       </KeyboardProvider>
     </Provider>

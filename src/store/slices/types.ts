@@ -119,6 +119,7 @@ export interface ProjectProps {
   messageCount: number;
   membersCount: number;
   completedTaskCount: number;
+
 }
 
 export interface TaskProps {

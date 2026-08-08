@@ -35,7 +35,6 @@ import { signInWithGoogle } from "../../authentation/googleSignIn.utils";
 import { signInWithGitHub } from "../../authentation/githubSignIn.utils";
 import { RouteStackParamStack } from "../../appNavigator/navigator.utils";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useHideHardwareNavigationButton } from "../../hooks/useHideNavigation";
 
 export default function LoginScreen() {
   const dispatch = useDispatch<AppDispatch>();
@@ -43,8 +42,6 @@ export default function LoginScreen() {
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
-
-    useHideHardwareNavigationButton();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -133,39 +130,23 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAwareScrollView
-      contentContainerStyle={{ flexGrow: 1 }}
+      contentContainerStyle={{
+        flexGrow: 1,
+      }}
       keyboardShouldPersistTaps="handled"
       bounces={false}
-      enableOnAndroid={true}
-      enableAutomaticScroll={true}
-      extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
-      keyboardOpeningTime={0}
-      resetScrollToCoords={{ x: 0, y: 0 }}
     >
-      {/*
-        FIX: removed `flex={1}` here. This View no longer needs to fill
-        exactly the visible screen height — it just needs to hold its
-        natural content height. `onLayout` is still used, but only to
-        read WIDTH (for font/icon scaling below) — never height, so a
-        keyboard-triggered resize can't cascade into a layout change.
-      */}
-      <Box bg="#F8F9FB" onLayout={onLayout} minHeight={screenHeight}>
+      <Box flex={1} bg="#F8F9FB" onLayout={onLayout} safeArea>
         {containerDimensions.baseSize > 0 && (
           <Center
             width={"100%"}
             px={isTablet ? "5%" : "0%"}
             py="6%"
-            // FIX: no more height="100%" driving the whole form —
-            // Center just wraps content and lets it size naturally.
+            paddingBottom={adjustSizeToResolveZoomInIssue(
+              containerDimensions.height * 0.12,
+            )}
           >
-            <VStack
-              w={isTablet ? "70%" : "90%"}
-              maxW={`${formMaxWidth}px`}
-              // FIX: no more fixed height ("95%"/"92%") on this VStack.
-              // Its height now comes purely from its children's natural
-              // sizes + the spacing below, so nothing recalculates when
-              // the keyboard opens/closes.
-            >
+            <VStack w={isTablet ? "70%" : "90%"} maxW={`${formMaxWidth}px`}>
               {/* Logo/Icon */}
               <Center width={"100%"} mb="4%">
                 <Image

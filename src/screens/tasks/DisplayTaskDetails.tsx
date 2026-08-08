@@ -28,7 +28,7 @@ import {
   adjustSizeToResolveZoomInIssue,
   getShortText,
 } from "../../utils/Helper";
-import { Text, RefreshControl } from "react-native"; // <-- 1. Import RefreshControl
+import { Text, RefreshControl } from "react-native";
 import { clearTaskError, fetchTaskForId } from "../../store/slices/TaskSlice";
 import {
   deleteComment,
@@ -54,16 +54,14 @@ import { isDisplayErrorMessageAtom } from "../../utils/Constent";
 import { MenuOption } from "../../utils/props.utils";
 import { getTaskMenuOptions } from "../../modals/ActionMenu.Options.utile";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { clearTaskMessages} from "../../store/slices/MessageSlice";
+import { clearTaskMessages } from "../../store/slices/MessageSlice";
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function TaskDetailScreen({ route }: any) {
-  const [isDisplayUpdateTask, setIsDisplayUpdateTask] =
-    useState<boolean>(false);
+  const [isDisplayUpdateTask, setIsDisplayUpdateTask] = useState<boolean>(false);
 
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
   const { taskId } = route.params;
   const dispatch = useDispatch<AppDispatch>();
 
@@ -101,35 +99,24 @@ export default function TaskDetailScreen({ route }: any) {
   const isDeleted = useRef(false);
 
   // ─── Refresh Logic ───────────────────────────────────────────────────────
-  // 2. Setup states for pulling to refresh
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // 3. Create the refresh handler
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-
-    // Re-fetch the task data via Redux
     dispatch(fetchTaskForId(taskId));
-
-    // Change the key to remount child components like <RecentMessages />
-    // so they trigger their internal re-fetches automatically.
     setTimeout(() => {
       setRefreshKey((prevKey) => prevKey + 1);
       setRefreshing(false);
     }, 1000);
   }, [dispatch, taskId]);
-  // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Clear stale task messages only when navigating to a DIFFERENT task.
   useEffect(() => {
     dispatch(clearTaskMessages());
   }, [taskId, dispatch]);
 
   useEffect(() => {
-    // Determine if we are still waiting on data or layout
     const isUIReady = containerDimensions.baseSize > 0;
-    // We only consider the task "ready" if it exists AND its ID matches the route ID
     const isTaskDataReady = task && task.taskId === taskId;
 
     if (
@@ -208,21 +195,36 @@ export default function TaskDetailScreen({ route }: any) {
     return <Box flex={1} bg="coolGray.50" onLayout={onLayout} />;
   }
 
-  // ─── Derived State ───────────────────────────────────────────────────────
+  // ─── Derived State (SIMPLIFIED) ──────────────────────────────────────────
 
   const isPrivateTask = !task.projectId;
   const isProjectTask = !!task.projectId;
   const isProjectAdmin = task.userRole === "ADMIN";
   const isProjectEditor = task.userRole === "EDITOR";
   const isTaskCreator = task.taskCreator?.userId === user?.userId;
-  const canPerformOperation = isPrivateTask
-    ? isTaskCreator
-    : isProjectAdmin || isProjectEditor;
-
   const isCompleted = task.status === true;
 
-  const priorityCfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.MEDIUM;
+    const findTaskCreatorRole = () => {
+      if (isProjectTask && task.project) {
+        const isAdmin = task.project.admin.userId === task.taskCreatorId;
 
+        return isAdmin ? "Admin" : "Editor";
+      }
+      return "Creator";
+    };
+
+
+
+  /** 
+   * Permissions Logic:
+   * - Project Task: Only ADMIN or the specific EDITOR who created the task can modify it.
+   * - Private Task: Only the task CREATOR can modify it.
+   */
+  const canPerformOperation = isProjectTask
+    ? isProjectAdmin || (isProjectEditor && isTaskCreator)
+    : isTaskCreator;
+
+  const priorityCfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.MEDIUM;
   const taskStatus = getStatus(task.status, task.taskDeadline);
   const projectStatus = project
     ? getStatus(project.status, project.projectDeadline)
@@ -290,7 +292,7 @@ export default function TaskDetailScreen({ route }: any) {
     onClickUpdate: () => setIsDisplayUpdateTask(true),
     onClickDelete: handleDeleteTask,
     onClickMarkComplete: onClickMarkCompleted,
-    ...(isProjectTask ? { isProjectCompleted: project?.status === true } : {})
+    ...(isProjectTask ? { isProjectCompleted: project?.status === true } : {}),
   });
 
   // ─── Render ──────────────────────────────────────────────────────────────
@@ -325,12 +327,10 @@ export default function TaskDetailScreen({ route }: any) {
           paddingBottom: containerDimensions.height * 0.01,
           paddingHorizontal: "4%",
         }}
-        // 4. Attach RefreshControl here
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* 5. Wrap everything in a key to force complete remounts and refetching of child APIs */}
         <VStack width="100%" key={`task-content-${refreshKey}`}>
           {/* ── Task type + status badges ── */}
           <HStack
@@ -467,7 +467,7 @@ export default function TaskDetailScreen({ route }: any) {
                     </Text>
                   </VStack>
                 </HStack>
-                {isTaskCreator && (
+                {canPerformOperation && (
                   <Pressable
                     disabled={isCompleted}
                     alignItems="center"
@@ -501,7 +501,7 @@ export default function TaskDetailScreen({ route }: any) {
                   alignItems="center"
                   flex={1}
                 >
-                  {isTaskCreator && (
+                  {canPerformOperation && (
                     <Pressable
                       position={"absolute"}
                       disabled={isCompleted}
@@ -605,54 +605,6 @@ export default function TaskDetailScreen({ route }: any) {
                 </HStack>
               </HStack>
 
-              {/* <HStack
-                w="48%"
-                bg="white"
-                rounded="xl"
-                p={adjustSizeToResolveZoomInIssue(baseSize * 0.03)}
-                borderWidth={1}
-                borderColor="coolGray.100"
-                alignItems="center"
-              >
-                <HStack
-                  space={adjustSizeToResolveZoomInIssue(baseSize * 0.03)}
-                  alignItems="center"
-                >
-                  <Center
-                    w={adjustSizeToResolveZoomInIssue(baseSize * 0.1)}
-                    h={adjustSizeToResolveZoomInIssue(baseSize * 0.1)}
-                    rounded="lg"
-                    bg="orange.50"
-                  >
-                
-                    <Icon
-                      as={Ionicons}
-                      name="chatbubble-outline"
-                      size={adjustSizeToResolveZoomInIssue(fs.icon * 0.5)}
-                      color="blue.500"
-                    />
-                  </Center>
-                  <VStack>
-                    <Text
-                      style={{
-                        fontSize: adjustSizeToResolveZoomInIssue(fs.meta * 1.5),
-                        fontWeight: "800",
-                        color: "#111827",
-                      }}
-                    >
-                      {task.commentCount}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
-                        color: "#6B7280",
-                      }}
-                    >
-                      Comments
-                    </Text>
-                  </VStack>
-                </HStack>
-              </HStack> */}
               <HStack
                 w="48%"
                 bg="white"
@@ -878,7 +830,8 @@ export default function TaskDetailScreen({ route }: any) {
                       color: "#3B82F6",
                     }}
                   >
-                    {task?.userRole}
+                    
+                    {findTaskCreatorRole()}
                   </Text>
                 </HStack>
                 <HStack
@@ -1011,185 +964,6 @@ export default function TaskDetailScreen({ route }: any) {
             isCompleted={task.status}
             loginUserRole={task.userRole}
           />
-
-          {/* ── Comments preview ── */}
-          {/* <VStack
-            width={"100%"}
-            space={adjustSizeToResolveZoomInIssue(baseSize * 0.03)}
-            mb={adjustSizeToResolveZoomInIssue(baseSize * 0.02)}
-          >
-            <HStack justifyContent="space-between" alignItems="center">
-              <HStack space={adjustSizeToResolveZoomInIssue(baseSize * 0.035)}>
-                <Text
-                  style={{
-                    fontSize: adjustSizeToResolveZoomInIssue(fs.title),
-                    fontWeight: "700",
-                    color: "#111827",
-                  }}
-                >
-                  Comments
-                </Text>
-                <Center
-                  bg="blue.500"
-                  px={adjustSizeToResolveZoomInIssue(baseSize * 0.02)}
-                  py={adjustSizeToResolveZoomInIssue(baseSize * 0.005)}
-                  rounded="md"
-                >
-                  <Text
-                    style={{
-                      color: "white",
-                      fontSize: adjustSizeToResolveZoomInIssue(fs.subTitle),
-                      fontWeight: "700",
-                    }}
-                  >
-                    {task.commentCount}
-                  </Text>
-                </Center>
-              </HStack>
-
-              <Pressable onPress={() => console.log("Click on View Comments")}>
-                <Text
-                  style={{
-                    fontSize: adjustSizeToResolveZoomInIssue(fs.subTitle),
-                    color: "#3B82F6",
-                    fontWeight: "600",
-                  }}
-                >
-                  View all →
-                </Text>
-              </Pressable>
-            </HStack>
-
-            {!comments?.length && !commentLoading ? (
-              <Box
-                bg="white"
-                rounded="2xl"
-                p={adjustSizeToResolveZoomInIssue(baseSize * 0.1)}
-                alignItems="center"
-                shadow={1}
-              >
-                <Text
-                  style={{
-                    color: "#9CA3AF",
-                    fontSize: adjustSizeToResolveZoomInIssue(fs.meta),
-                  }}
-                >
-                  No comments yet
-                </Text>
-              </Box>
-            ) : (
-              <Box bg="white" rounded="2xl" shadow={1} overflow="hidden">
-                {comments.slice(0, 3).map((comment: any, index: number) => {
-                  const isCommentCreator =
-                    comment.commentSender?.userId === user?.userId;
-                  const canDeleteComment =
-                    isProjectAdmin || isTaskCreator || isCommentCreator;
-
-                  return (
-                    <HStack
-                      key={comment.commentId}
-                      space={3}
-                      alignItems="flex-start"
-                      p={3}
-                      borderBottomWidth={
-                        index !== 2 && index !== comments.length - 1 ? 1 : 0
-                      }
-                      borderBottomColor="coolGray.100"
-                    >
-                      <NBAvatar
-                        w={adjustSizeToResolveZoomInIssue(baseSize * 0.1)}
-                        h={adjustSizeToResolveZoomInIssue(baseSize * 0.1)}
-                        bg="blue.500"
-                        source={{ uri: comment.commentSender?.profileImageUrl }}
-                      >
-                        {comment.commentSender?.name?.charAt(0) || "U"}
-                      </NBAvatar>
-                      <VStack flex={1}>
-                        <HStack
-                          justifyContent="space-between"
-                          alignItems="flex-start"
-                          mb={1}
-                        >
-                          <VStack>
-                            <Text
-                              style={{
-                                fontSize: adjustSizeToResolveZoomInIssue(
-                                  baseSize * 0.1,
-                                ),
-                                fontWeight: "700",
-                                color: "#111827",
-                              }}
-                            >
-                              {comment.commentSender?.name}
-                            </Text>
-                            <Text
-                              style={{
-                                fontSize: adjustSizeToResolveZoomInIssue(
-                                  baseSize * 0.1,
-                                ),
-                                color: "#9CA3AF",
-                              }}
-                            >
-                              {comment.commentSender?.email}
-                            </Text>
-                          </VStack>
-                          <HStack alignItems="center" space={2}>
-                            <Text
-                              style={{
-                                fontSize: adjustSizeToResolveZoomInIssue(
-                                  baseSize * 0.1,
-                                ),
-                                color: "#9CA3AF",
-                              }}
-                            >
-                              {timeAgo(comment.createdAt)}
-                            </Text>
-                            {canDeleteComment && (
-                              <Pressable
-                                onPress={async () => {
-                                  try {
-                                    await dispatch(
-                                      deleteComment({
-                                        commentId: comment.commentId,
-                                        taskId,
-                                      }),
-                                    ).unwrap();
-                                    dispatch(fetchTaskComments(taskId));
-                                  } catch (err) {
-                                    console.log(`Delete Comment Error: ${err}`);
-                                  }
-                                }}
-                              >
-                                <Icon
-                                  as={Ionicons}
-                                  name="trash-outline"
-                                  size={adjustSizeToResolveZoomInIssue(
-                                    baseSize * 0.1,
-                                  )}
-                                  color="red.500"
-                                />
-                              </Pressable>
-                            )}
-                          </HStack>
-                        </HStack>
-                        <Text
-                          style={{
-                            fontSize: adjustSizeToResolveZoomInIssue(
-                              baseSize * 0.1,
-                            ),
-                            color: "#4B5563",
-                          }}
-                          numberOfLines={2}
-                        >
-                          {comment.comment}
-                        </Text>
-                      </VStack>
-                    </HStack>
-                  );
-                })}
-              </Box>
-            )}
-          </VStack> */}
         </VStack>
       </KeyboardAwareScrollView>
 

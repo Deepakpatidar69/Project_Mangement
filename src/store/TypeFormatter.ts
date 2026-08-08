@@ -29,6 +29,8 @@ export const formatDashBoardProjectResponse = (
 };
 
 export const formatProjectResponse = (projectData: any): ProjectProps[] => {
+  console.log(`Project Data is :: ${JSON.stringify(projectData)}`);
+
   if (!projectData) {
     return [];
   }
@@ -91,6 +93,7 @@ export const formatCommentsResponse = (commentData: any) => {
 };
 
 export const formatSingleProject = (projectData: any): ProjectProps => {
+  console.log(`Format Project data is :: ${JSON.stringify(projectData)}`);
 
   return {
     projectId: projectData.projectId,
@@ -141,8 +144,6 @@ export const formatSingleTask = (taskData: any): TaskProps => {
 };
 
 export const formatSingleUser = (userData: any): AuthProps => {
-
-
   return {
     userId: userData.userId,
 
@@ -161,7 +162,7 @@ export const formatSingleUser = (userData: any): AuthProps => {
     googleId: userData.googleId ?? null,
     githubId: userData.githubId ?? null,
 
-    isVerifiedByPassword : userData.isVerifiedByPassword ?? false,
+    isVerifiedByPassword: userData.isVerifiedByPassword ?? false,
     isEmailVerified: userData.isEmailVerified,
     emailVerifiedAt: userData.emailVerifiedAt
       ? new Date(userData.emailVerifiedAt).toISOString()
@@ -224,12 +225,13 @@ export const formatSingleUser = (userData: any): AuthProps => {
         userData?.completedStates?._count?.createdProjects ?? 0,
 
       completedProjects:
-        userData?.completedStates?._count?.createdProjects ?? 0,
+        (userData?.completedStates?._count?.createdProjects ?? 0) +
+        (userData?.AssignedTo.length ?? 0),
       pendingProjects:
         (userData._count?.createdProjects ?? 0) +
         (userData._count?.AssignedTo ?? 0) -
-        (userData._count?.AssignedTo ?? 0) -
         (userData?.AssignedTo?.length ?? 0),
+
       completedAssignProjects: userData?.AssignedTo.length ?? 0,
       pendingAssignProjects:
         (userData._count?.AssignedTo ?? 0) - (userData?.AssignedTo.length ?? 0), // --
@@ -246,7 +248,6 @@ export const formatSingleUser = (userData: any): AuthProps => {
 };
 
 export const formatSingleMember = (memberData: any): MemberProps => {
-
   return {
     memberId: memberData.memberId,
     projectId: memberData.projectId,
@@ -279,7 +280,6 @@ export const formatSingleMember = (memberData: any): MemberProps => {
 };
 
 export const formatSingleMessage = (messageData: any): MessageProps => {
-
   return {
     messageId: messageData.messageId,
     message: messageData.message,

@@ -171,7 +171,6 @@ export const fetchPrivateTask = createAsyncThunk(
         API_ENDPOINTS.FETCH_PRIVATE_TASK(fetchType || "ALL", limit, skip),
       );
 
-
       return res.data;
     } catch (err: any) {
       return thunkAPI.rejectWithValue(
@@ -292,6 +291,11 @@ export const updateProjectTaskStatus = createAsyncThunk(
       const res = await apiClient.patch(
         API_ENDPOINTS.UPDATE_PROJECT_TASK_STATUS,
         data,
+      );
+
+      console.log(
+        `Data is for Updated Project Task Status: `,
+        JSON.stringify(res.data),
       );
       return res.data;
     } catch (err: any) {
@@ -651,24 +655,27 @@ const taskSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchTaskForProject.fulfilled, (state, action: any) => {
-    
         const { tasks, totalTasksCount } = action.payload;
+        const formatedTasks = formatTaskResponse(tasks) || [];
 
-        const formatedTasks = formatTaskResponse(tasks);
-
-      
-
+        // 🔥 DUPLICATE FIX
         if (action.meta.arg?.skip > 0) {
+          const existingTaskIds = new Set(
+            state.projectTasks.tasks.map((t) => t.taskId),
+          );
+          const uniqueNewTasks = formatedTasks.filter(
+            (t) => !existingTaskIds.has(t.taskId),
+          );
+
           state.projectTasks.tasks = [
             ...state.projectTasks.tasks,
-            ...formatedTasks,
+            ...uniqueNewTasks,
           ];
         } else {
           state.projectTasks.tasks = formatedTasks;
         }
 
         state.privateTasks.totalTasks = totalTasksCount; // 🔥 IMPORTANT
-
         state.loading = false;
         state.success = true;
       })
@@ -703,13 +710,24 @@ const taskSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchPrivateTask.fulfilled, (state, action: any) => {
-        const tasks = formatTaskResponse(action.payload.privateTasks.tasks);
+        const tasks =
+          formatTaskResponse(action.payload.privateTasks.tasks) || [];
 
+        // 🔥 DUPLICATE FIX
         if (action.meta.arg?.skip > 0) {
-          state.privateTasks.tasks = [...state.privateTasks.tasks, ...tasks];
+          const existingIds = new Set(
+            state.privateTasks.tasks.map((t) => t.taskId),
+          );
+          const uniqueTasks = tasks.filter((t) => !existingIds.has(t.taskId));
+
+          state.privateTasks.tasks = [
+            ...state.privateTasks.tasks,
+            ...uniqueTasks,
+          ];
         } else {
-          state.privateTasks.tasks = tasks ?? [];
+          state.privateTasks.tasks = tasks;
         }
+
         state.privateTasks.totalTasks =
           action.payload.privateTasks.totalTasksCount;
         state.loading = false;

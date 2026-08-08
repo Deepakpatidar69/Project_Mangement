@@ -38,7 +38,6 @@ import {
 } from "../utils/GlobalStateUpdateUtils";
 import AppLoader from "./CustomLoader";
 
-
 export interface RecentMessagesProps {
   type: "PROJECT" | "TASK" | "PROJECT_TASK";
   baseSize: number;
@@ -184,7 +183,13 @@ const RecentMessages = ({
       setRecentMessages(projectMessages);
       setMessageCount(totalProjectMessageCount);
     }
-  }, [taskMessages, projectMessages, totalTaskMessageCount, totalProjectMessageCount, type]);
+  }, [
+    taskMessages,
+    projectMessages,
+    totalTaskMessageCount,
+    totalProjectMessageCount,
+    type,
+  ]);
 
   const handleSendMessage = async () => {
     if (!messageText.trim() || isCompleted) return;
@@ -240,15 +245,13 @@ const RecentMessages = ({
     ({ item, index }: { item: MessageProps; index: number }) => {
       const isMessageCreator = item.messageSender.userId === currentUserId;
 
-      let isAllowToDelete = false;
-
-      if (type === "PROJECT" || type === "PROJECT_TASK") {
-        isAllowToDelete =
-          loginUserRole === "ADMIN" ||
-          (loginUserRole === "EDITOR" && isMessageCreator);
-      } else {
-        isAllowToDelete = loginUserRole === "CREATOR";
-      }
+      // ─── SIMPLIFIED PERMISSIONS LOGIC ──────────────────────────────────────────
+      const isAllowToDelete =
+        type === "PROJECT" || type === "PROJECT_TASK"
+          ? loginUserRole === "ADMIN" ||
+            (loginUserRole === "EDITOR" && isMessageCreator)
+          : loginUserRole === "CREATOR";
+      // ─────────────────────────────────────────────────────────────────────────
 
       return (
         <MessageCard
@@ -302,7 +305,6 @@ const RecentMessages = ({
 
   return (
     <Box flex={1} width={"100%"}>
-
       <VStack
         flex={1}
         width="100%"

@@ -20,7 +20,7 @@ export const ListEmptyComponent = ({
   projectType = undefined,
   type = undefined,
   fetchType,
-isProjectCompleted = false
+  isProjectCompleted = false
 }: ListEmptyComponentProps) => {
   
 

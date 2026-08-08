@@ -24,15 +24,12 @@ import { clearAuthError } from "../../store/slices/authSlice";
 import { isDisplayErrorMessageAtom } from "../../utils/Constent";
 import UserProfile from "./ProfileScreen";
 import { onLogoutUser } from "../auth/auth.utils";
-import { useHideHardwareNavigationButton } from "../../hooks/useHideNavigation";
 
 export default function NewHomeScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { containerDimensions, onLayout } = useContainerDimensions();
   const navigation =
     useNavigation<NativeStackNavigationProp<RouteStackParamStack>>();
-
-  useHideHardwareNavigationButton();
 
   const { user, error } = useSelector((state: RootState) => state.auth);
   const loginUser = user as AuthProps | null;
@@ -54,7 +51,6 @@ export default function NewHomeScreen() {
   ]);
 
   const onChangeScreen = (screen: SCREEN_TYPE) => {
-    console.log(`Screen is :: ${screen}`);
     if (screen == "CREATE_TASK_SCREEN") {
       navigation.navigate("CreateTaskScreen", {
         taskType: "TASK",

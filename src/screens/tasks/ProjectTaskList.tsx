@@ -290,7 +290,7 @@ export default function ProjectTaskList() {
     (!initialLoadDone && !isRefreshing) ||
     (tasksLoading && page === 0 && !isRefreshing);
 
-  const isCompleted = singleProject?.status;
+  const isAllowToAddTask = !singleProject?.status && singleProject?.userRole !== "VIEWER";
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -369,11 +369,11 @@ export default function ProjectTaskList() {
                   justifyContent={"center"}
                   alignItems={"center"}
                   px={"5%"}
-                  disabled={isCompleted}
+                  disabled={!isAllowToAddTask}
                   borderRadius={"lg"}
                   mt={safeTop}
                   right={
-                    isCompleted
+                    !isAllowToAddTask
                       ? 0
                       : adjustSizeToResolveZoomInIssue(
                           containerDimensions.baseSize * 0.02,
@@ -386,7 +386,7 @@ export default function ProjectTaskList() {
                     },
                   }}
                 >
-                  {isCompleted ? (
+                  {!isAllowToAddTask ? (
                     <Ionicons
                       name="add-circle"
                       color="#777777"
@@ -497,7 +497,7 @@ export default function ProjectTaskList() {
                         taskType="PROJECT"
                         type="TASK"
                         fetchType={fetchType}
-                        isProjectCompleted={isCompleted}
+                        isProjectCompleted={isAllowToAddTask}
                       />
                     }
                   />

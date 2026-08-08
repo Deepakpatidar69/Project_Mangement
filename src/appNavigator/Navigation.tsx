@@ -25,7 +25,12 @@ import { DeleteAccountScreen } from "../screens/auth/DeleteAccountScreen";
 
 const Stack = createNativeStackNavigator();
 
-const ApplicationNavigation = () => {
+const ApplicationNavigation = ({
+  onNavigationStateChange,
+}: {
+  onNavigationStateChange?: () => void;
+}) => {
+  
   const dispatch = useDispatch<AppDispatch>();
 
   const { isAuthenticated, isCheckLoadUser } = useSelector(
@@ -33,8 +38,6 @@ const ApplicationNavigation = () => {
   );
 
   useEffect(() => {
-
-
     dispatch(loadUser());
   }, []);
 
@@ -48,12 +51,8 @@ const ApplicationNavigation = () => {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
+    <NavigationContainer onStateChange={onNavigationStateChange}>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <>
             {/* ✅ PRIVATE SCREENS */}

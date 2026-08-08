@@ -228,7 +228,7 @@ export default function SignupScreen({ navigation }: any) {
       contentContainerStyle={{ flexGrow: 1 }}
       keyboardShouldPersistTaps="handled"
       bounces={false}
-      bottomOffset={20}
+   
     >
       <Box flex={1} bg="#F8F9FB" onLayout={onLayout} safeArea>
         {containerDimensions.baseSize > 0 && (

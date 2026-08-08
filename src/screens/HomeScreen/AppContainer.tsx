@@ -26,7 +26,6 @@ import AppLoader from "../../components/CustomLoader";
 import UpdateRoleModal from "../../modals/UpdateMemberRole";
 import { getAssets } from "../../AssetsMapping/AssetMap";
 import OfflineModal from "../../modals/OfflineModal";
-import { useHideHardwareNavigationButton } from "../../hooks/useHideNavigation";
 
 type AppComponentProps = {
   children: React.ReactNode;

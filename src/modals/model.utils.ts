@@ -708,6 +708,7 @@ const onUpdateStatus = async ({
         action: isCompleted ? "DELETE" : "CREATE",
       });
     } else if (type === "TASK" && taskId) {
+      
       await store.dispatch(updatePrivateTaskStatus(taskId)).unwrap();
       await store.dispatch(
         updateUserStats({ completedTasksCount: isCompleted ? -1 : 1 }),
